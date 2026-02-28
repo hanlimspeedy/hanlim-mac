@@ -12,7 +12,8 @@ mac-setup/
 ├── 0200_sudo-touchid.sh             # Touch ID sudo + 공유 세션 (최초 + 재부팅 후)
 ├── 0220_claude-screencapture.sh     # Claude Code 화면 캡쳐 권한 설정 (최초 1회)
 ├── 0300_homebrew.sh                 # Homebrew 설치
-└── 0400_input-switch-shift-space.sh # Karabiner + Shift+Space 한영전환 + Ctrl↔Cmd
+├── 0400_input-switch-shift-space.sh # Karabiner + Shift+Space 한영전환 + Ctrl↔Cmd
+└── 0500_battery-charge-limit.sh    # 배터리 충전 80% 제한 (actuallymentor/battery)
 ```
 
 ## 사용법
@@ -26,6 +27,7 @@ cd ~/mac-setup
 ./0220_claude-screencapture.sh  # 화면 캡쳐 권한 (최초 1회)
 ./0300_homebrew.sh           # Homebrew 설치
 ./0400_input-switch-shift-space.sh  # Karabiner + 한영전환 + 키보드 설정
+./0500_battery-charge-limit.sh     # 배터리 충전 80% 제한
 ```
 
 ### 재부팅 후 (매번)
@@ -78,6 +80,13 @@ git clone https://github.com/hanlimspeedy/hanlim-mac.git ~/mac-setup
 cd ~/mac-setup
 # 순서대로 스크립트 실행
 ```
+
+## 배터리 충전 제한
+- [actuallymentor/battery](https://github.com/actuallymentor/battery) v1.4.0 사용
+- 80% 이상 충전 차단, 이하로 내려가면 자동 충전
+- 재부팅 후에도 유지됨
+- macOS Tahoe (26.x) 지원 확인됨 (v1.3.1+ SMC 키 대응)
+- `battery status`로 상태 확인, `battery maintain stop`으로 해제
 
 ## 기본 브라우저
 - Chrome 기본 브라우저 설정: `brew install defaultbrowser && defaultbrowser chrome`
