@@ -47,6 +47,35 @@ cd ~/mac-setup
 - 시스템 설정 > 개인정보 보호 및 보안 > 화면 녹화 에서 Terminal 권한 허용 필요
 - 한 번 설정하면 재부팅 후에도 유지
 
+## GitHub 연동
+
+### 저장소
+- https://github.com/hanlimspeedy/hanlim-mac
+
+### 최초 설정 (이미 완료된 항목)
+1. `brew install gh` (GitHub CLI 설치)
+2. `gh auth login -p https -w` (브라우저 인증)
+3. `gh auth setup-git` (git credential helper 연동)
+
+### 변경사항 push
+```bash
+cd ~/mac-setup
+git add -A
+git commit -m "메시지"
+git push
+```
+
+### 다른 맥에서 복원
+```bash
+gh auth login -p https -w
+git clone https://github.com/hanlimspeedy/hanlim-mac.git ~/mac-setup
+cd ~/mac-setup
+# 순서대로 스크립트 실행
+```
+
+## 기본 브라우저
+- Chrome 기본 브라우저 설정: `brew install defaultbrowser && defaultbrowser chrome`
+
 ## 네이밍 규칙
 - 4자리 번호 (0100, 0200, ...)
 - 100 간격으로 중간 삽입 가능 (예: 0150, 0250)
