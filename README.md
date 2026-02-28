@@ -6,7 +6,8 @@
 mac-setup/
 ├── README.md
 ├── config/
-│   └── karabiner.json               # Karabiner-Elements 설정 (윈도우 스타일)
+│   ├── karabiner.json               # Karabiner-Elements 설정 (윈도우 스타일)
+│   └── KARABINER.md                 # Karabiner 설정 가이드 + 트러블슈팅
 ├── 0100_xcode-cli-tools.sh          # Xcode CLI Tools (git 포함)
 ├── 0200_sudo-touchid.sh             # Touch ID sudo + 공유 세션 (최초 + 재부팅 후)
 ├── 0220_claude-screencapture.sh     # Claude Code 화면 캡쳐 권한 설정 (최초 1회)
@@ -35,23 +36,9 @@ cd ~/mac-setup
 
 이것만 실행하면 Claude Code에서 sudo 사용 가능.
 
-## Karabiner-Elements 설정 (config/karabiner.json)
+## Karabiner-Elements
 
-### Ctrl ↔ Cmd 스왑 (윈도우 스타일)
-- Ctrl+C/V/X/Z/A/S/W/T/F 등 윈도우 단축키 그대로 사용
-- simple_modifications로 left/right 양쪽 모두 스왑
-
-### Shift+Space 한영전환
-- Karabiner complex_modifications + select_input_source 방식
-- 영어(ABC) → 한국어(두벌식), 한국어 → 영어 토글
-- 공식 KE-complex_modifications 커뮤니티 규칙 기반
-- 참고: https://github.com/pqrs-org/KE-complex_modifications
-
-### 최초 설치 시 필요한 권한 (수동)
-1. **입력 모니터링**: 시스템 설정 > 개인정보 보호 및 보안 > 입력 모니터링 > Karabiner-Core-Service ON
-2. **로그인 항목**: 시스템 설정 > 일반 > 로그인 항목 > Karabiner 백그라운드 항목 ON
-3. **드라이버 확장 프로그램**: 시스템 설정 > 일반 > 로그인 항목 및 확장 프로그램 > Karabiner-VirtualHIDDevice-Manager ON
-4. 권한 설정 후 **재부팅** 필요
+상세 설정 가이드, 트러블슈팅, 참고 자료는 [config/KARABINER.md](config/KARABINER.md) 참조.
 
 ## Claude Code 연동 설명
 
