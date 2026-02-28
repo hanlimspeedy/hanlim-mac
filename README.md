@@ -6,8 +6,7 @@
 mac-setup/
 ├── README.md
 ├── 0100_xcode-cli-tools.sh          # Xcode CLI Tools (git 포함)
-├── 0200_sudo-touchid.sh             # Touch ID sudo + 공유 세션 (최초 1회)
-├── 0210_claude-sudo-activate.sh     # 재부팅 후 Claude Code sudo 활성화
+├── 0200_sudo-touchid.sh             # Touch ID sudo + 공유 세션 (최초 + 재부팅 후)
 ├── 0220_claude-screencapture.sh     # Claude Code 화면 캡쳐 권한 설정 (최초 1회)
 ├── 0300_homebrew.sh                 # Homebrew 설치
 └── 0400_input-switch-shift-space.sh # Shift+Space 한영전환
@@ -29,7 +28,7 @@ cd ~/mac-setup
 ### 재부팅 후 (매번)
 
 ```bash
-~/mac-setup/0210_claude-sudo-activate.sh
+~/mac-setup/0200_sudo-touchid.sh
 ```
 
 이것만 실행하면 Claude Code에서 sudo 사용 가능.
