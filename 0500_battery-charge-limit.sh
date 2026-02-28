@@ -25,6 +25,9 @@ fi
 echo "80% 충전 제한 설정 중..."
 battery maintain 80
 
+# 메뉴바 아이콘 표시를 위해 앱 실행
+open -a battery
+
 echo ""
 echo "완료: 배터리 충전 80% 제한 설정됨"
 echo "  - 80% 이상 충전 차단, 이하로 내려가면 자동 충전"
