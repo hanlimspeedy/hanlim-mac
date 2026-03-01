@@ -6,7 +6,7 @@
             "complex_modifications": {
                 "rules": [
                     {
-                        "description": "Shift+Space to korean <-> english",
+                        "description": "Shift+Space to CapsLock (input source switch)",
                         "manipulators": [
                             {
                                 "type": "basic",
@@ -23,50 +23,7 @@
                                 },
                                 "to": [
                                     {
-                                        "select_input_source": {
-                                            "input_source_id": "^com\\.apple\\.inputmethod\\.Korean\\.2SetKorean$"
-                                        }
-                                    }
-                                ],
-                                "conditions": [
-                                    {
-                                        "type": "input_source_if",
-                                        "input_sources": [
-                                            {
-                                                "input_source_id": "^com\\.apple\\.keylayout\\.ABC$"
-                                            }
-                                        ]
-                                    }
-                                ]
-                            },
-                            {
-                                "type": "basic",
-                                "from": {
-                                    "key_code": "spacebar",
-                                    "modifiers": {
-                                        "mandatory": [
-                                            "shift"
-                                        ],
-                                        "optional": [
-                                            "caps_lock"
-                                        ]
-                                    }
-                                },
-                                "to": [
-                                    {
-                                        "select_input_source": {
-                                            "input_source_id": "^com\\.apple\\.keylayout\\.ABC$"
-                                        }
-                                    }
-                                ],
-                                "conditions": [
-                                    {
-                                        "type": "input_source_if",
-                                        "input_sources": [
-                                            {
-                                                "input_source_id": "^com\\.apple\\.inputmethod\\.Korean\\.2SetKorean$"
-                                            }
-                                        ]
+                                        "key_code": "caps_lock"
                                     }
                                 ]
                             }
