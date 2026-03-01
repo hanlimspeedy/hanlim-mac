@@ -20,7 +20,10 @@ mac-setup/
 ├── 0900_keka.sh                    # Keka 압축 해제/생성 (RAR, 7z, TGZ 등)
 ├── 1000_mouse-no-acceleration.sh   # 마우스 가속 끄기 (윈도우 스타일)
 ├── 1100_startup-mute.sh            # 부팅 사운드 끄기
-└── 1200_menubar-volume.sh          # 메뉴바 볼륨 아이콘 표시
+├── 1200_menubar-volume.sh          # 메뉴바 볼륨 아이콘 표시
+├── 1300_smb-connect.sh             # Windows SMB 공유 폴더 연결
+├── .env                            # SMB 접속 정보 (git 제외)
+└── .gitignore
 ```
 
 ## 사용법
