@@ -17,7 +17,8 @@ mac-setup/
 ├── 0600_microsoft-office.sh        # Microsoft 365 Office 설치
 ├── 0700_shottr.sh                  # Shottr 스크린샷 캡처 + 편집 도구
 ├── 0800_iina.sh                    # IINA 동영상 플레이어
-└── 0900_keka.sh                    # Keka 압축 해제/생성 (RAR, 7z, TGZ 등)
+├── 0900_keka.sh                    # Keka 압축 해제/생성 (RAR, 7z, TGZ 등)
+└── 1000_mouse-no-acceleration.sh   # 마우스 가속 끄기 (윈도우 스타일)
 ```
 
 ## 사용법
@@ -36,6 +37,7 @@ cd ~/mac-setup
 ./0700_shottr.sh                   # Shottr 스크린샷 캡처 + 편집 도구
 ./0800_iina.sh                     # IINA 동영상 플레이어
 ./0900_keka.sh                     # Keka 압축 해제/생성
+./1000_mouse-no-acceleration.sh    # 마우스 가속 끄기 (로그아웃 후 적용)
 ```
 
 ### 재부팅 후 (매번)
