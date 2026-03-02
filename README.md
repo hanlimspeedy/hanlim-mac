@@ -16,7 +16,7 @@ mac-setup/
 ├── 0400_input-switch-shift-space.sh # Karabiner + Shift+Space 한영전환 + Ctrl↔Cmd
 ├── 0500_battery-charge-limit.sh    # 배터리 충전 80% 제한 (actuallymentor/battery)
 ├── 0600_microsoft-office.sh        # Microsoft 365 Office 설치
-├── 0700_shottr.sh                  # Shottr 스크린샷 캡처 + 편집 도구
+├── 0700_bettershot.sh              # Better Shot 스크린샷 캡처 + 편집 도구 (무료, 오픈소스)
 ├── 0800_iina.sh                    # IINA 동영상 플레이어
 ├── 0900_keka.sh                    # Keka 압축 해제/생성 (RAR, 7z, TGZ 등)
 ├── 1000_mouse-no-acceleration.sh   # 마우스 가속 끄기 (윈도우 스타일)
@@ -43,7 +43,7 @@ cd ~/mac-setup
 ./0400_input-switch-shift-space.sh  # Karabiner + 한영전환 + 키보드 설정
 ./0500_battery-charge-limit.sh     # 배터리 충전 80% 제한
 ./0600_microsoft-office.sh         # Microsoft 365 Office 설치
-./0700_shottr.sh                   # Shottr 스크린샷 캡처 + 편집 도구
+./0700_bettershot.sh               # Better Shot 스크린샷 캡처 + 편집 도구
 ./0800_iina.sh                     # IINA 동영상 플레이어
 ./0900_keka.sh                     # Keka 압축 해제/생성
 ./1000_mouse-no-acceleration.sh    # 마우스 가속 끄기 (로그아웃 후 적용)
