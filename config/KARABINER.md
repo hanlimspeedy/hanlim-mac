@@ -4,7 +4,8 @@
 
 | 기능 | 방식 | 상태 |
 |------|------|------|
-| 윈도우 스타일 단축키 (33개) | complex_modifications | 완료 |
+| 윈도우 스타일 단축키 (35개) | complex_modifications | 완료 |
+| Num Lock 숫자패드 탐색키 | complex_modifications + variable toggle | 완료 |
 | Shift+Space 한영전환 | complex_modifications + select_input_source | 완료 |
 
 ## 윈도우 스타일 단축키 (complex_modifications)
@@ -43,14 +44,27 @@ Karabiner 공식 커뮤니티 규칙 `Windows shortcuts on macOS` 기반.
 | Delete | 파일삭제 | Finder만 |
 | Backspace | 상위폴더 | Finder만 |
 | Enter | 열기 | Finder만 |
+| Ctrl+Insert | 복사 | |
+| Shift+Insert | 붙여넣기 | |
 | Ctrl+클릭 | 다중선택 | |
 
-### 터미널 제외 해제
+### Num Lock 숫자패드 탐색키
 
-원본 규칙은 Terminal, iTerm2 등 터미널 앱을 제외하지만, 터미널에서도 윈도우 스타일로 사용하기 위해 **터미널 제외를 해제**함.
+macOS는 Num Lock을 지원하지 않아 숫자패드가 항상 숫자만 전송됨.
+Karabiner 변수(`num_lock_off`) 토글로 윈도우와 동일한 Num Lock 동작 구현.
 
-- 제외 해제된 앱: Terminal, iTerm2, Hyper, Alacritty, kitty, WezTerm
-- **주의**: 터미널에서 프로세스 중단(원래 Ctrl+C)이 필요하면 **Cmd+C**를 사용
+- Num Lock 키를 누르면 토글 (숫자 ↔ 탐색)
+- Num Lock OFF: keypad_0→Insert, keypad_7→Home, keypad_1→End, keypad_9→PgUp, keypad_3→PgDn 등
+- Shift+keypad_0 → Cmd+V (붙여넣기), Ctrl+keypad_0 → Cmd+C (복사) 직접 매핑
+- Karabiner rules는 체이닝 안 되므로 modifier 조합은 직접 매핑 필요
+
+### 터미널 제외 설정
+
+원본 규칙은 Terminal, iTerm2 등 터미널 앱을 제외하지만, Termius 등에서 윈도우 스타일로 사용하기 위해 대부분의 터미널 제외를 해제함.
+
+- **제외 유지**: macOS Terminal.app (`com.apple.Terminal`) — Ctrl+C = SIGINT 유지
+- **제외 해제**: iTerm2, Hyper, Alacritty, kitty, WezTerm, Termius
+- **주의**: Termius에서 프로세스 중단이 필요하면 Termius 자체 단축키 사용
 
 ## Shift+Space 한영전환
 
