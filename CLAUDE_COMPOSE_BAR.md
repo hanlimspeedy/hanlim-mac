@@ -44,7 +44,7 @@ bash ~/mac-setup/1400_claude-compose-bar.sh
 
 스크립트가 설치하는 것:
 - `~/.local/bin/claude-compose` — Compose Bar 스크립트
-- `~/.tmux.conf` — Ctrl+D 단축키 바인딩 (1줄 추가)
+- `~/.tmux.conf` — mouse on + Ctrl+D 단축키 바인딩
 - PATH에 `~/.local/bin` 추가 (없는 경우)
 
 ## 사용법
@@ -83,11 +83,17 @@ claude            # Claude Code 실행
 | nano 에디터 | tmux가 Ctrl+X(종료키)를 가로채서 nano 종료 불가 |
 | Warp 터미널 | Claude Code 자체 문제이므로 터미널 변경으로 해결 안 됨 |
 
+## tmux 추가 설정
+
+- `set -g mouse on` — 마우스 스크롤로 화면 출력 스크롤 (이전 대화 내용 확인 가능)
+- `1400_claude-compose-bar.sh` 실행 시 자동 설정됨
+
 ## 파일 구조
 
 ```
 ~/.local/bin/claude-compose   # Compose Bar 메인 스크립트
-~/.tmux.conf                  # Ctrl+D 바인딩 (1줄)
+~/.tmux.conf                  # mouse on + Ctrl+D 바인딩
+config/tmux.conf              # tmux 설정 백업 (git 관리)
 ```
 
 ## 기술 상세

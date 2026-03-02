@@ -7,7 +7,8 @@ mac-setup/
 ├── README.md
 ├── config/
 │   ├── karabiner.json               # Karabiner-Elements 설정 (윈도우 스타일)
-│   └── KARABINER.md                 # Karabiner 설정 가이드 + 트러블슈팅
+│   ├── KARABINER.md                 # Karabiner 설정 가이드 + 트러블슈팅
+│   └── tmux.conf                    # tmux 설정 (mouse + Compose Bar)
 ├── 0100_xcode-cli-tools.sh          # Xcode CLI Tools (git 포함)
 ├── 0200_sudo-touchid.sh             # Touch ID sudo + 공유 세션 (최초 + 재부팅 후)
 ├── 0220_claude-screencapture.sh     # Claude Code 화면 캡쳐 권한 설정 (최초 1회)
@@ -22,6 +23,9 @@ mac-setup/
 ├── 1100_startup-mute.sh            # 부팅 사운드 끄기
 ├── 1200_menubar-volume.sh          # 메뉴바 볼륨 아이콘 표시
 ├── 1300_smb-connect.sh             # Windows SMB 공유 폴더 연결
+├── 1400_claude-compose-bar.sh     # Claude Code Compose Bar (한글 입력 해결)
+├── 1500_termius.sh                # Termius SSH 클라이언트
+├── CLAUDE_COMPOSE_BAR.md          # Compose Bar 상세 문서
 ├── .env                            # SMB 접속 정보 (git 제외)
 └── .gitignore
 ```
@@ -45,6 +49,8 @@ cd ~/mac-setup
 ./1000_mouse-no-acceleration.sh    # 마우스 가속 끄기 (로그아웃 후 적용)
 ./1100_startup-mute.sh             # 부팅 사운드 끄기
 ./1200_menubar-volume.sh           # 메뉴바 볼륨 아이콘 표시
+./1400_claude-compose-bar.sh       # Claude Code Compose Bar (한글 입력)
+./1500_termius.sh                  # Termius SSH 클라이언트
 ```
 
 ### 재부팅 후 (매번)
