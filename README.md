@@ -11,7 +11,8 @@ mac-setup/
 │   ├── TERMIUS.md                   # Termius 설정 가이드 (기본 터미널)
 │   └── tmux.conf                    # tmux 설정 (mouse + Compose Bar)
 ├── 0100_xcode-cli-tools.sh          # Xcode CLI Tools (git 포함)
-├── 0200_sudo-touchid.sh             # Touch ID sudo + 공유 세션 (최초 + 재부팅 후)
+├── 0200_sudo-touchid.sh             # Touch ID sudo + 공유 세션 (최초 설정)
+├── 0210_sudo-reboot.sh              # sudo 세션 활성화 (재부팅 후 매번)
 ├── 0220_claude-screencapture.sh     # Claude Code 화면 캡쳐 권한 설정 (최초 1회)
 ├── 0300_homebrew.sh                 # Homebrew 설치
 ├── 0400_input-switch-shift-space.sh # Karabiner + Shift+Space 한영전환 + Ctrl↔Cmd
@@ -38,7 +39,8 @@ mac-setup/
 ```bash
 cd ~/mac-setup
 ./0100_xcode-cli-tools.sh   # Xcode CLI Tools 설치 (팝업 승인 필요)
-./0200_sudo-touchid.sh      # Touch ID sudo 설정
+./0200_sudo-touchid.sh      # Touch ID sudo 설정 (최초)
+./0210_sudo-reboot.sh       # sudo 세션 활성화 (재부팅 후 매번)
 ./0220_claude-screencapture.sh  # 화면 캡쳐 권한 (최초 1회)
 ./0300_homebrew.sh           # Homebrew 설치
 ./0400_input-switch-shift-space.sh  # Karabiner + 한영전환 + 키보드 설정
@@ -57,10 +59,12 @@ cd ~/mac-setup
 ### 재부팅 후 (매번)
 
 ```bash
-~/mac-setup/0200_sudo-touchid.sh
+~/mac-setup/0210_sudo-reboot.sh
 ```
 
 이것만 실행하면 Claude Code에서 sudo 사용 가능.
+- `0200`은 최초 설정용 (PAM, sudoers 파일 생성)
+- `0210`은 재부팅 후 sudo 세션 활성화용 (`sudo -v`만 실행)
 
 ## Karabiner-Elements
 
