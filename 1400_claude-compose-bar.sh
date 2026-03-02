@@ -71,8 +71,18 @@ echo "--- tmux Compose Bar 단축키 설정..."
 TMUX_CONF="$HOME/.tmux.conf"
 COMPOSE_BIND='bind -T root C-d run-shell '"'"'tmux split-window -v -l 8 "claude-compose #{pane_id}"'"'"''
 
+# 마우스 스크롤 활성화
+if [ -f "$TMUX_CONF" ] && grep -q "mouse on" "$TMUX_CONF"; then
+  echo "--- tmux mouse 이미 설정됨"
+else
+  echo "" >> "$TMUX_CONF"
+  echo "# 마우스 스크롤로 화면 출력 스크롤" >> "$TMUX_CONF"
+  echo "set -g mouse on" >> "$TMUX_CONF"
+fi
+
+# Compose Bar 단축키
 if [ -f "$TMUX_CONF" ] && grep -q "claude-compose" "$TMUX_CONF"; then
-  echo "--- tmux.conf에 이미 설정됨"
+  echo "--- tmux Compose Bar 이미 설정됨"
 else
   echo "" >> "$TMUX_CONF"
   echo "# Claude Code Compose Bar (Ctrl+D)" >> "$TMUX_CONF"
