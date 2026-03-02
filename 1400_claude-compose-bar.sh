@@ -60,33 +60,34 @@ rm -f "$TMPFILE"
 SCRIPT
 chmod +x ~/.local/bin/claude-compose
 
-# PATH 확인
+# PATH 확인 (macOS=zsh, Linux=bash 모두 대응)
 if ! echo "$PATH" | grep -q "$HOME/.local/bin"; then
-  echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
-  echo "--- PATH에 ~/.local/bin 추가됨 (.bashrc)"
+  SHELL_RC="$HOME/.bashrc"
+  [ -n "$ZSH_VERSION" ] || [ "$(basename "$SHELL")" = "zsh" ] && SHELL_RC="$HOME/.zshrc"
+  echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$SHELL_RC"
+  echo "--- PATH에 ~/.local/bin 추가됨 ($(basename "$SHELL_RC"))"
 fi
 
-# tmux 설정
-echo "--- tmux Compose Bar 단축키 설정..."
+# tmux 설정 — config/tmux.conf를 그대로 복사 (단일 소스)
+echo "--- tmux 설정 적용..."
 TMUX_CONF="$HOME/.tmux.conf"
-COMPOSE_BIND='bind -T root C-d run-shell '"'"'tmux split-window -v -l 8 "claude-compose #{pane_id}"'"'"''
-
-# 마우스 스크롤 활성화
-if [ -f "$TMUX_CONF" ] && grep -q "mouse on" "$TMUX_CONF"; then
-  echo "--- tmux mouse 이미 설정됨"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+if [ -f "$SCRIPT_DIR/config/tmux.conf" ]; then
+  cp "$SCRIPT_DIR/config/tmux.conf" "$TMUX_CONF"
+  echo "--- config/tmux.conf → ~/.tmux.conf 복사 완료"
 else
-  echo "" >> "$TMUX_CONF"
-  echo "# 마우스 스크롤로 화면 출력 스크롤" >> "$TMUX_CONF"
-  echo "set -g mouse on" >> "$TMUX_CONF"
-fi
+  # config/tmux.conf가 없는 환경 (단독 실행) — 직접 생성
+  cat > "$TMUX_CONF" << 'TMUX_SETTINGS'
+# 마우스 스크롤로 화면 출력 스크롤
+set -g mouse on
 
-# Compose Bar 단축키
-if [ -f "$TMUX_CONF" ] && grep -q "claude-compose" "$TMUX_CONF"; then
-  echo "--- tmux Compose Bar 이미 설정됨"
-else
-  echo "" >> "$TMUX_CONF"
-  echo "# Claude Code Compose Bar (Ctrl+D)" >> "$TMUX_CONF"
-  echo "$COMPOSE_BIND" >> "$TMUX_CONF"
+# 마우스 드래그 선택 → 시스템 클립보드에 자동 복사
+bind -T copy-mode MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "pbcopy"
+
+# Claude Code Compose Bar (Ctrl+D)
+bind -T root C-d run-shell 'tmux split-window -v -l 8 "claude-compose #{pane_id}"'
+TMUX_SETTINGS
+  echo "--- ~/.tmux.conf 직접 생성 완료"
 fi
 
 # 현재 tmux 세션에 적용
