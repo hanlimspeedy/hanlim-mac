@@ -8,6 +8,7 @@ mac-setup/
 ├── config/
 │   ├── karabiner.json               # Karabiner-Elements 설정 (윈도우 스타일)
 │   ├── KARABINER.md                 # Karabiner 설정 가이드 + 트러블슈팅
+│   ├── TERMIUS.md                   # Termius 설정 가이드 (기본 터미널)
 │   └── tmux.conf                    # tmux 설정 (mouse + Compose Bar)
 ├── 0100_xcode-cli-tools.sh          # Xcode CLI Tools (git 포함)
 ├── 0200_sudo-touchid.sh             # Touch ID sudo + 공유 세션 (최초 + 재부팅 후)
@@ -64,6 +65,11 @@ cd ~/mac-setup
 ## Karabiner-Elements
 
 상세 설정 가이드, 트러블슈팅, 참고 자료는 [config/KARABINER.md](config/KARABINER.md) 참조.
+
+## Termius (기본 터미널)
+
+macOS 기본 터미널 대신 Termius를 기본으로 사용. Ctrl+C/V 복사/붙여넣기, SSH, Local Terminal 지원.
+상세 설정은 [config/TERMIUS.md](config/TERMIUS.md) 참조.
 
 ## Claude Code 연동 설명
 
