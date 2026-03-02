@@ -105,6 +105,50 @@ bind -T copy-mode MouseDragEnd1Pane send-keys -X copy-pipe-and-cancel "pbcopy"
 
 **수정한 파일**: `~/.tmux.conf`에 위 1줄 추가 (git 관리: `config/tmux.conf`)
 
+## tmux 기본 사용법
+
+### 시작/종료
+
+```bash
+tmux                    # 새 세션 시작
+tmux ls                 # 세션 목록 확인
+tmux attach             # 마지막 세션에 다시 연결
+tmux attach -t 0        # 특정 세션에 연결
+tmux kill-session -t 0  # 특정 세션 종료
+exit                    # 현재 pane/window 종료
+```
+
+### 주요 단축키 (prefix = Ctrl+B)
+
+| 단축키 | 동작 |
+|--------|------|
+| Ctrl+B, D | 세션 분리 (detach) — 세션은 백그라운드에서 유지 |
+| Ctrl+B, C | 새 window 생성 |
+| Ctrl+B, N | 다음 window |
+| Ctrl+B, P | 이전 window |
+| Ctrl+B, 숫자 | 해당 번호 window로 이동 |
+| Ctrl+B, % | 세로 분할 (좌/우) |
+| Ctrl+B, " | 가로 분할 (상/하) |
+| Ctrl+B, 화살표 | pane 이동 |
+| Ctrl+B, X | 현재 pane 닫기 |
+
+### 복사/붙여넣기
+
+- **마우스 드래그** → 자동으로 시스템 클립보드에 복사 (pbcopy 설정됨)
+- **Ctrl+V** (→ Cmd+V) → 붙여넣기
+
+### 커스텀 단축키 (현재 설정)
+
+| 단축키 | 동작 |
+|--------|------|
+| Ctrl+D | Claude Code Compose Bar 열기 (하단 micro 에디터) |
+
+### 주의사항
+
+1. **tmux 안에서 tmux 실행 금지** — 중첩 세션이 됨. `tmux ls`로 기존 세션 확인 후 `tmux attach`로 복귀
+2. **세션 정리** — 안 쓰는 세션은 `tmux kill-session -t 이름`으로 정리
+3. **Ctrl+D 주의** — Claude Code 없이 빈 쉘에서 Ctrl+D 누르면 Compose Bar가 열림 (빈 쉘 종료 아님)
+
 ## 설치
 
 ```bash
