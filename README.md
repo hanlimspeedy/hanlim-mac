@@ -27,6 +27,8 @@ mac-setup/
 ├── 1300_smb-connect.sh             # Windows SMB 공유 폴더 연결
 ├── 1400_claude-compose-bar.sh     # Claude Code Compose Bar (한글 입력 해결)
 ├── 1500_termius.sh                # Termius SSH 클라이언트
+├── 1600_kakaotalk.sh              # KakaoTalk (Mac App Store)
+├── 1700_telegram.sh               # Telegram 메신저
 ├── CLAUDE_COMPOSE_BAR.md          # Compose Bar 상세 문서
 ├── .env                            # SMB 접속 정보 (git 제외)
 └── .gitignore
@@ -54,6 +56,8 @@ cd ~/mac-setup
 ./1200_menubar-volume.sh           # 메뉴바 볼륨 아이콘 표시
 ./1400_claude-compose-bar.sh       # Claude Code Compose Bar (한글 입력)
 ./1500_termius.sh                  # Termius SSH 클라이언트
+./1600_kakaotalk.sh                # KakaoTalk
+./1700_telegram.sh                 # Telegram
 ```
 
 ### 재부팅 후 (매번)
