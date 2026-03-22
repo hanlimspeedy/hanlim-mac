@@ -56,7 +56,7 @@ L/R 버튼을 Page Up/Down으로 사용. 웹페이지를 편하게 읽기 위한
 
 ### 디바이스 식별자
 - **Vendor ID:** 11720 (0x2DC8, 8BitDo)
-- **Product ID:** 12848 (0x3250)
+- **Product ID:** 36888 (0x9018)
 
 ### 적용 원리
 - `device_if` 조건으로 vendor_id + product_id가 일치하는 장치에서만 규칙 적용

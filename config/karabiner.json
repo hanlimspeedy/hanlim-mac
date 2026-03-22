@@ -2272,34 +2272,12 @@
             ]
           },
           {
-            "description": "8BitDo Zero 2: L=PageUp, R=PageDown (키보드 모드 R+Start)",
+            "description": "8BitDo Zero 2: L/A=PageUp, R/Y=PageDown (키보드 모드 R+Start)",
             "manipulators": [
               {
                 "type": "basic",
                 "from": {
                   "key_code": "k"
-                },
-                "to": [
-                  {
-                    "key_code": "page_up"
-                  }
-                ],
-                "conditions": [
-                  {
-                    "type": "device_if",
-                    "identifiers": [
-                      {
-                        "vendor_id": 11720,
-                        "product_id": 12848
-                      }
-                    ]
-                  }
-                ]
-              },
-              {
-                "type": "basic",
-                "from": {
-                  "key_code": "m"
                 },
                 "to": [
                   {
@@ -2312,7 +2290,73 @@
                     "identifiers": [
                       {
                         "vendor_id": 11720,
-                        "product_id": 12848
+                        "product_id": 36888
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "basic",
+                "from": {
+                  "key_code": "g"
+                },
+                "to": [
+                  {
+                    "key_code": "page_up"
+                  }
+                ],
+                "conditions": [
+                  {
+                    "type": "device_if",
+                    "identifiers": [
+                      {
+                        "vendor_id": 11720,
+                        "product_id": 36888
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "basic",
+                "from": {
+                  "key_code": "m"
+                },
+                "to": [
+                  {
+                    "key_code": "page_up"
+                  }
+                ],
+                "conditions": [
+                  {
+                    "type": "device_if",
+                    "identifiers": [
+                      {
+                        "vendor_id": 11720,
+                        "product_id": 36888
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "type": "basic",
+                "from": {
+                  "key_code": "i"
+                },
+                "to": [
+                  {
+                    "key_code": "page_down"
+                  }
+                ],
+                "conditions": [
+                  {
+                    "type": "device_if",
+                    "identifiers": [
+                      {
+                        "vendor_id": 11720,
+                        "product_id": 36888
                       }
                     ]
                   }
