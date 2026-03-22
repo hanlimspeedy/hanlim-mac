@@ -9,6 +9,7 @@ mac-setup/
 │   ├── karabiner.json               # Karabiner-Elements 설정 (윈도우 스타일)
 │   ├── KARABINER.md                 # Karabiner 설정 가이드 + 트러블슈팅
 │   ├── TERMIUS.md                   # Termius 설정 가이드 (기본 터미널)
+│   ├── 8BITDO.md                    # 8BitDo Zero 2 설정 가이드 (페이지 넘기기)
 │   └── tmux.conf                    # tmux 설정 (mouse + Compose Bar)
 ├── 0100_xcode-cli-tools.sh          # Xcode CLI Tools (git 포함)
 ├── 0110_homebrew-shared.sh          # Homebrew 다중 사용자 공유 (admin 그룹, 멱등성 보장)
@@ -32,6 +33,7 @@ mac-setup/
 ├── 1610_vscode-bold-font.sh       # VS Code 굵은 폰트 설정 (Noto Sans KR Black)
 ├── 1700_kakaotalk.sh              # KakaoTalk (Mac App Store)
 ├── 1800_telegram.sh               # Telegram 메신저
+├── 1900_8bitdo-pageflip.sh        # 8BitDo Zero 2 페이지 넘기기 (L=PageUp, R=PageDown)
 ├── CLAUDE_COMPOSE_BAR.md          # Compose Bar 상세 문서
 ├── .env                            # SMB 접속 정보 (git 제외)
 └── .gitignore
@@ -64,6 +66,7 @@ cd ~/mac-setup
 ./1610_vscode-bold-font.sh         # VS Code 굵은 폰트 설정
 ./1700_kakaotalk.sh                # KakaoTalk
 ./1800_telegram.sh                 # Telegram
+./1900_8bitdo-pageflip.sh          # 8BitDo Zero 2 페이지 넘기기
 ```
 
 ### 재부팅 후 (매번)
@@ -79,6 +82,12 @@ cd ~/mac-setup
 ## Karabiner-Elements
 
 상세 설정 가이드, 트러블슈팅, 참고 자료는 [config/KARABINER.md](config/KARABINER.md) 참조.
+
+## 8BitDo Zero 2 (페이지 넘기기)
+
+8BitDo Zero 2를 키보드 모드(R+Start)로 연결, L=Page Up / R=Page Down으로 웹페이지 읽기.
+Karabiner-Elements `device_if` 조건으로 8BitDo만 매핑, 다른 키보드 영향 없음.
+상세 설정은 [config/8BITDO.md](config/8BITDO.md) 참조.
 
 ## Termius (기본 터미널)
 
