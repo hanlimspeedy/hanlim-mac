@@ -29,6 +29,7 @@ mac-setup/
 ├── 1300_smb-connect.sh             # Windows SMB 공유 폴더 연결
 ├── 1400_claude-compose-bar.sh     # Claude Code Compose Bar (한글 입력 해결)
 ├── 1500_termius.sh                # Termius SSH 클라이언트
+├── 1550_ghostty.sh                # Ghostty 터미널 (Claude Code + tmux 최적화)
 ├── 1600_vscode.sh                 # Visual Studio Code 설치
 ├── 1610_vscode-bold-font.sh       # VS Code 굵은 폰트 설정 (Noto Sans KR Black)
 ├── 1700_kakaotalk.sh              # KakaoTalk (Mac App Store)
@@ -62,6 +63,7 @@ cd ~/mac-setup
 ./1200_menubar-volume.sh           # 메뉴바 볼륨 아이콘 표시
 ./1400_claude-compose-bar.sh       # Claude Code Compose Bar (한글 입력)
 ./1500_termius.sh                  # Termius SSH 클라이언트
+./1550_ghostty.sh                  # Ghostty 터미널 (로컬 Claude Code용)
 ./1600_vscode.sh                   # Visual Studio Code 설치
 ./1610_vscode-bold-font.sh         # VS Code 굵은 폰트 설정
 ./1700_kakaotalk.sh                # KakaoTalk
@@ -85,8 +87,8 @@ cd ~/mac-setup
 
 ## 8BitDo Zero 2 (페이지 넘기기)
 
-8BitDo Zero 2를 키보드 모드(R+Start)로 연결, L=Page Up / R=Page Down으로 웹페이지 읽기.
-Karabiner-Elements `device_if` 조건으로 8BitDo만 매핑, 다른 키보드 영향 없음.
+8BitDo Zero 2를 macOS 게임패드 모드(A+Start)로 연결, Swift CLI 도구로 L/R/A/Y → Page Up/Down 매핑.
+키보드 모드(R+Start)는 입력 씹힘 문제로 사용하지 않음.
 상세 설정은 [config/8BITDO.md](config/8BITDO.md) 참조.
 
 ## Termius (기본 터미널)
