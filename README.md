@@ -16,7 +16,7 @@ mac-setup/
 ├── 0220_claude-screencapture.sh     # Claude Code 화면 캡쳐 권한 설정 (최초 1회)
 ├── 0300_homebrew.sh                 # Homebrew 설치
 ├── 0400_input-switch-shift-space.sh # Karabiner + Shift+Space 한영전환 + Ctrl↔Cmd
-├── 0500_battery-charge-limit.sh    # 배터리 충전 80% 제한 (actuallymentor/battery)
+├── 0500_battery-charge-limit.sh    # 배터리 충전 80% 제한 (batt - LaunchDaemon)
 ├── 0600_microsoft-office.sh        # Microsoft 365 Office 설치
 ├── 0700_bettershot.sh              # Better Shot 스크린샷 캡처 + 편집 도구 (무료, 오픈소스)
 ├── 0800_iina.sh                    # IINA 동영상 플레이어
@@ -27,8 +27,10 @@ mac-setup/
 ├── 1300_smb-connect.sh             # Windows SMB 공유 폴더 연결
 ├── 1400_claude-compose-bar.sh     # Claude Code Compose Bar (한글 입력 해결)
 ├── 1500_termius.sh                # Termius SSH 클라이언트
-├── 1600_kakaotalk.sh              # KakaoTalk (Mac App Store)
-├── 1700_telegram.sh               # Telegram 메신저
+├── 1600_vscode.sh                 # Visual Studio Code 설치
+├── 1610_vscode-bold-font.sh       # VS Code 굵은 폰트 설정 (Noto Sans KR Black)
+├── 1700_kakaotalk.sh              # KakaoTalk (Mac App Store)
+├── 1800_telegram.sh               # Telegram 메신저
 ├── CLAUDE_COMPOSE_BAR.md          # Compose Bar 상세 문서
 ├── .env                            # SMB 접속 정보 (git 제외)
 └── .gitignore
@@ -56,8 +58,10 @@ cd ~/mac-setup
 ./1200_menubar-volume.sh           # 메뉴바 볼륨 아이콘 표시
 ./1400_claude-compose-bar.sh       # Claude Code Compose Bar (한글 입력)
 ./1500_termius.sh                  # Termius SSH 클라이언트
-./1600_kakaotalk.sh                # KakaoTalk
-./1700_telegram.sh                 # Telegram
+./1600_vscode.sh                   # Visual Studio Code 설치
+./1610_vscode-bold-font.sh         # VS Code 굵은 폰트 설정
+./1700_kakaotalk.sh                # KakaoTalk
+./1800_telegram.sh                 # Telegram
 ```
 
 ### 재부팅 후 (매번)
@@ -119,11 +123,12 @@ cd ~/mac-setup
 ```
 
 ## 배터리 충전 제한
-- [actuallymentor/battery](https://github.com/actuallymentor/battery) v1.4.0 사용
-- 80% 이상 충전 차단, 이하로 내려가면 자동 충전
-- 재부팅 후에도 유지됨
-- macOS Tahoe (26.x) 지원 확인됨 (v1.3.1+ SMC 키 대응)
-- `battery status`로 상태 확인, `battery maintain stop`으로 해제
+- [charlie0129/batt](https://github.com/charlie0129/batt) v0.7.3 사용
+- **LaunchDaemon** 아키텍처 (로그아웃/슬립/재부팅에도 유지)
+- 80% 이상 충전 차단, 78% 이하로 내려가면 자동 충전
+- 이전 솔루션(actuallymentor/battery)은 macOS Tahoe에서 고장 확인되어 교체
+- `batt status`로 상태 확인, `batt limit 100`으로 해제
+- 롤백: `sudo brew services stop batt && brew uninstall batt`
 
 ## 기본 브라우저
 - Chrome 기본 브라우저 설정: `brew install defaultbrowser && defaultbrowser chrome`
