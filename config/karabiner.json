@@ -1807,6 +1807,12 @@
                     "bundle_identifiers": [
                       "^com.apple.finder"
                     ]
+                  },
+                  {
+                    "type": "frontmost_application_unless",
+                    "bundle_identifiers": [
+                      "^com.apple.Spotlight"
+                    ]
                   }
                 ]
               }
