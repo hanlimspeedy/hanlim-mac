@@ -37,7 +37,6 @@ Karabiner 공식 커뮤니티 규칙 `Windows shortcuts on macOS` 기반.
 | Ctrl+Home/End | 문서 처음/끝 | |
 | Ctrl+Esc | Launchpad | |
 | Ctrl+Shift+Esc | 활성 상태 보기 | |
-| Cmd+L | 로그아웃 | |
 | F2 | 이름변경 | Finder만 |
 | Enter | 열기 | Finder만 |
 | Ctrl+Insert | 복사 | |
