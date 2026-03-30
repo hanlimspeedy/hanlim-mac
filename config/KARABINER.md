@@ -36,7 +36,6 @@ Karabiner 공식 커뮤니티 규칙 `Windows shortcuts on macOS` 기반.
 | Shift+Home/End | 선택하며 줄 처음/끝 | |
 | Ctrl+Home/End | 문서 처음/끝 | |
 | Ctrl+Tab | 앱 전환 | |
-| Ctrl+좌/우 화살표 | 단어 단위 이동 | |
 | Ctrl+Esc | Launchpad | |
 | Ctrl+Shift+Esc | 활성 상태 보기 | |
 | Cmd+L | 로그아웃 | |
