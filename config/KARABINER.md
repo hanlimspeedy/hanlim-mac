@@ -23,7 +23,6 @@ Karabiner 공식 커뮤니티 규칙 `Windows shortcuts on macOS` 기반.
 | Ctrl+A | 전체선택 | |
 | Ctrl+S | 저장 | |
 | Ctrl+N | 새문서 | |
-| Ctrl+F | 찾기 | |
 | Ctrl+W | 닫기 | |
 | Ctrl+T | 새탭 | |
 | Ctrl+B | 굵게 | |
