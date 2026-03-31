@@ -1013,45 +1013,6 @@
             ]
           },
           {
-            "description": "Ctrl+B => Cmd+B (Bold)",
-            "manipulators": [
-              {
-                "conditions": [
-                  {
-                    "bundle_identifiers": [
-                      "^org\\.macports\\.X11$",
-                      "^org\\.virtualbox\\.app\\.VirtualBoxVM$",
-                      "^com\\.microsoft\\.rdc\\.macos$",
-                      "^tv\\.parsec\\.www$",
-                      "^com\\.apple\\.Terminal$"
-                    ],
-                    "type": "frontmost_application_unless"
-                  }
-                ],
-                "from": {
-                  "key_code": "b",
-                  "modifiers": {
-                    "mandatory": [
-                      "control"
-                    ],
-                    "optional": [
-                      "any"
-                    ]
-                  }
-                },
-                "to": [
-                  {
-                    "key_code": "b",
-                    "modifiers": [
-                      "command"
-                    ]
-                  }
-                ],
-                "type": "basic"
-              }
-            ]
-          },
-          {
             "description": "Ctrl+I => Cmd+I (Italic)",
             "manipulators": [
               {

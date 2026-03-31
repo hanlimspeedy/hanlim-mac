@@ -25,7 +25,6 @@ Karabiner 공식 커뮤니티 규칙 `Windows shortcuts on macOS` 기반.
 | Ctrl+N | 새문서 | |
 | Ctrl+W | 닫기 | |
 | Ctrl+T | 새탭 | |
-| Ctrl+B | 굵게 | |
 | Ctrl+I | 기울임 | |
 | Ctrl+L | URL 이동 | 브라우저만 |
 | Ctrl+R | 새로고침 | 브라우저만 |
