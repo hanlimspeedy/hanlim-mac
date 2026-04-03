@@ -18,6 +18,8 @@ func sendKey(_ keyCode: CGKeyCode) {
 
 let pageUp: CGKeyCode = 116
 let pageDown: CGKeyCode = 121
+let leftArrow: CGKeyCode = 123
+let rightArrow: CGKeyCode = 124
 
 func setupController(_ controller: GCController) {
     print("컨트롤러 연결됨: \(controller.vendorName ?? "Unknown")")
@@ -43,9 +45,21 @@ func setupController(_ controller: GCController) {
             if pressed { sendKey(pageDown) }
         }
 
+        // 물리 X버튼 (macOS에서 buttonY로 인식) → 왼쪽 방향키 (뒤로)
+        gamepad.buttonY.pressedChangedHandler = { _, _, pressed in
+            if pressed { sendKey(leftArrow) }
+        }
+
+        // 물리 B버튼 (macOS에서 buttonA로 인식) → 오른쪽 방향키 (앞으로)
+        gamepad.buttonA.pressedChangedHandler = { _, _, pressed in
+            if pressed { sendKey(rightArrow) }
+        }
+
         print("  매핑 완료:")
         print("    R숄더(X쪽) / A버튼 → Page Up")
         print("    L숄더(방향키쪽) / Y버튼 → Page Down")
+        print("    X버튼 → 왼쪽 방향키 (뒤로)")
+        print("    B버튼 → 오른쪽 방향키 (앞으로)")
     } else if let micro = controller.microGamepad {
         micro.buttonA.pressedChangedHandler = { _, _, pressed in
             if pressed { sendKey(pageUp) }
