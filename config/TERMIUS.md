@@ -81,13 +81,20 @@ Karabiner 변수 토글로 윈도우와 동일한 Num Lock 동작 구현:
 - `Num Lock OFF: Numpad keys => Navigation keys (Windows style)`
 - `Num Lock toggle (clear key)`
 
-### 4. Local Terminal
+### 4. 폰트 설정
+
+- **터미널 폰트**: Fira Mono Medium
+- 설정 경로: Settings > Terminal > Font > "Fira Mono Medium" 선택
+- Termius는 커스텀 폰트 추가 불가 (내장 폰트만 선택 가능)
+- 한글은 시스템 기본 폰트 사용 (변경 불가)
+
+### 5. Local Terminal
 
 - **brew 버전만 지원** (App Store 버전은 샌드박스 제한으로 불가)
 - 현재 brew로 설치되어 있으므로 정상 동작
 - Termius > New Tab > Local Terminal로 열기
 
-### 5. tmux 권장 사용
+### 6. tmux 권장 사용
 
 Termius Local Terminal에서도 `tmux`를 먼저 실행하고 작업하는 것을 권장:
 
