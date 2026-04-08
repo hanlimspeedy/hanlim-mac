@@ -29,11 +29,13 @@ defaults write com.google.Chrome AutoUpdate -bool false
 # (d) Keystone LaunchAgent / LaunchDaemon unload & 비활성화
 KEYSTONE_AGENT="$HOME/Library/LaunchAgents/com.google.keystone.agent.plist"
 KEYSTONE_DAEMON="/Library/LaunchDaemons/com.google.keystone.daemon.plist"
+KEYSTONE_AGENT_SYS="/Library/LaunchAgents/com.google.keystone.agent.plist"
+KEYSTONE_XPC_SYS="/Library/LaunchAgents/com.google.keystone.xpcservice.plist"
 
 if [ -f "$KEYSTONE_AGENT" ]; then
   launchctl bootout gui/$(id -u) "$KEYSTONE_AGENT" 2>/dev/null || true
   launchctl disable "gui/$(id -u)/com.google.keystone.agent" 2>/dev/null || true
-  echo "  - Keystone LaunchAgent 비활성화 완료"
+  echo "  - Keystone 유저 LaunchAgent 비활성화 완료"
 fi
 
 if [ -f "$KEYSTONE_DAEMON" ]; then
@@ -42,12 +44,44 @@ if [ -f "$KEYSTONE_DAEMON" ]; then
   echo "  - Keystone LaunchDaemon 비활성화 완료"
 fi
 
-# (e) Google Software Update 디렉토리 권한 잠금
+if [ -f "$KEYSTONE_AGENT_SYS" ]; then
+  sudo launchctl bootout gui/$(id -u) "$KEYSTONE_AGENT_SYS" 2>/dev/null || true
+  launchctl disable "gui/$(id -u)/com.google.keystone.agent" 2>/dev/null || true
+  echo "  - Keystone 시스템 LaunchAgent 비활성화 완료"
+fi
+
+if [ -f "$KEYSTONE_XPC_SYS" ]; then
+  sudo launchctl bootout gui/$(id -u) "$KEYSTONE_XPC_SYS" 2>/dev/null || true
+  launchctl disable "gui/$(id -u)/com.google.keystone.xpcservice" 2>/dev/null || true
+  echo "  - Keystone XPC Service 비활성화 완료"
+fi
+
+# (e) GoogleUpdater (신규 업데이터) 시스템 데몬 비활성화
+GOOGLE_UPDATER_DAEMON="/Library/LaunchDaemons/com.google.GoogleUpdater.wake.system.plist"
+if [ -f "$GOOGLE_UPDATER_DAEMON" ]; then
+  sudo launchctl bootout system "$GOOGLE_UPDATER_DAEMON" 2>/dev/null || true
+  sudo launchctl disable "system/com.google.GoogleUpdater.wake.system" 2>/dev/null || true
+  echo "  - GoogleUpdater 시스템 데몬 비활성화 완료"
+fi
+
+# (f) Google Software Update / GoogleUpdater 디렉토리 권한 잠금
 KEYSTONE_DIR="$HOME/Library/Google/GoogleSoftwareUpdate"
 if [ -d "$KEYSTONE_DIR" ]; then
   chmod -R 000 "$KEYSTONE_DIR"
-  echo "  - GoogleSoftwareUpdate 디렉토리 권한 잠금 완료"
+  echo "  - GoogleSoftwareUpdate 유저 디렉토리 권한 잠금 완료"
 fi
+
+KEYSTONE_DIR_SYS="/Library/Google/GoogleSoftwareUpdate"
+if [ -d "$KEYSTONE_DIR_SYS" ]; then
+  sudo chmod -R 000 "$KEYSTONE_DIR_SYS"
+  echo "  - GoogleSoftwareUpdate 시스템 디렉토리 권한 잠금 완료"
+fi
+
+# GoogleUpdater 바이너리 잠금
+find /Library/Google -name "GoogleUpdater" -type f 2>/dev/null | while read f; do
+  sudo chmod 000 "$f"
+  echo "  - 잠금: $f"
+done
 
 echo "[Chrome] 완료"
 echo ""
