@@ -17,7 +17,6 @@ mac-setup/
 ├── 0220_claude-screencapture.sh     # Claude Code 화면 캡쳐 권한 설정 (최초 1회)
 ├── 0300_homebrew.sh                 # Homebrew 설치
 ├── 0400_input-switch-shift-space.sh # Karabiner + Shift+Space 한영전환 + Ctrl↔Cmd
-├── 0500_battery-charge-limit.sh    # 배터리 충전 80% 제한 (batt - LaunchDaemon)
 ├── 0600_microsoft-office.sh        # Microsoft 365 Office 설치
 ├── 0700_bettershot.sh              # Better Shot 스크린샷 캡처 + 편집 도구 (무료, 오픈소스)
 ├── 0800_iina.sh                    # IINA 동영상 플레이어
@@ -34,7 +33,10 @@ mac-setup/
 ├── 1610_vscode-bold-font.sh       # VS Code 굵은 폰트 설정 (Noto Sans KR Black)
 ├── 1700_kakaotalk.sh              # KakaoTalk (Mac App Store)
 ├── 1800_telegram.sh               # Telegram 메신저
-├── 1900_8bitdo-pageflip.sh        # 8BitDo Zero 2 페이지 넘기기 (L=PageUp, R=PageDown)
+├── 1900_8bitdo-pageflip.sh        # 8BitDo Zero 2 페이지 넘기기 (Swift CLI 빌드)
+├── 8bitdo-pageflip/               # Swift CLI 소스 + 빌드 산출물
+│   ├── main.swift                 # GameController + CGEvent 매핑
+│   └── 8bitdo-pageflip            # 컴파일된 바이너리
 ├── CLAUDE_COMPOSE_BAR.md          # Compose Bar 상세 문서
 ├── .env                            # SMB 접속 정보 (git 제외)
 └── .gitignore
@@ -52,7 +54,6 @@ cd ~/mac-setup
 ./0220_claude-screencapture.sh  # 화면 캡쳐 권한 (최초 1회)
 ./0300_homebrew.sh           # Homebrew 설치
 ./0400_input-switch-shift-space.sh  # Karabiner + 한영전환 + 키보드 설정
-./0500_battery-charge-limit.sh     # 배터리 충전 80% 제한
 ./0600_microsoft-office.sh         # Microsoft 365 Office 설치
 ./0700_bettershot.sh               # Better Shot 스크린샷 캡처 + 편집 도구
 ./0800_iina.sh                     # IINA 동영상 플레이어
@@ -68,7 +69,7 @@ cd ~/mac-setup
 ./1610_vscode-bold-font.sh         # VS Code 굵은 폰트 설정
 ./1700_kakaotalk.sh                # KakaoTalk
 ./1800_telegram.sh                 # Telegram
-./1900_8bitdo-pageflip.sh          # 8BitDo Zero 2 페이지 넘기기
+./1900_8bitdo-pageflip.sh          # 8BitDo Zero 2 페이지 넘기기 (Swift CLI 빌드)
 ```
 
 ### 재부팅 후 (매번)
@@ -87,8 +88,9 @@ cd ~/mac-setup
 
 ## 8BitDo Zero 2 (페이지 넘기기)
 
-8BitDo Zero 2를 macOS 게임패드 모드(A+Start)로 연결, Swift CLI 도구로 L/R/A/Y → Page Up/Down 매핑.
-키보드 모드(R+Start)는 입력 씹힘 문제로 사용하지 않음.
+8BitDo Zero 2를 macOS 게임패드 모드(A+Start)로 연결, Swift CLI 도구
+(`8bitdo-pageflip/main.swift`)로 게임패드 버튼을 Page Up/Down/방향키로 매핑.
+키보드 모드(R+Start)는 입력 씹힘 문제로 사용 안 함. Karabiner는 8bitdo에 사용하지 않음.
 상세 설정은 [config/8BITDO.md](config/8BITDO.md) 참조.
 
 ## Termius (기본 터미널)
@@ -136,12 +138,8 @@ cd ~/mac-setup
 ```
 
 ## 배터리 충전 제한
-- [charlie0129/batt](https://github.com/charlie0129/batt) v0.7.3 사용
-- **LaunchDaemon** 아키텍처 (로그아웃/슬립/재부팅에도 유지)
-- 80% 이상 충전 차단, 78% 이하로 내려가면 자동 충전
-- 이전 솔루션(actuallymentor/battery)은 macOS Tahoe에서 고장 확인되어 교체
-- `batt status`로 상태 확인, `batt limit 100`으로 해제
-- 롤백: `sudo brew services stop batt && brew uninstall batt`
+- macOS 26.4 (Tahoe)부터 시스템 설정 > 배터리 > 충전 한도 80% native 지원
+- 별도 스크립트/서드파티 도구 불필요
 
 ## 기본 브라우저
 - Chrome 기본 브라우저 설정: `brew install defaultbrowser && defaultbrowser chrome`

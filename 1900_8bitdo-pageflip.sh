@@ -1,46 +1,44 @@
 #!/bin/bash
 set -e
 
-echo "==> 8BitDo Zero 2 페이지 넘기기 설정 (Karabiner-Elements)"
+echo "==> 8BitDo Zero 2 페이지 넘기기 (Swift CLI 빌드)"
 
-# Homebrew 환경 로드
-eval "$(/opt/homebrew/bin/brew shellenv)" 2>/dev/null
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SRC="$SCRIPT_DIR/8bitdo-pageflip/main.swift"
+BIN="$SCRIPT_DIR/8bitdo-pageflip/8bitdo-pageflip"
 
-# ───────────────────────────────────────────
-# 1) Karabiner-Elements 설치 확인
-# ───────────────────────────────────────────
-if ! brew list --cask karabiner-elements &>/dev/null; then
-  echo "오류: Karabiner-Elements가 설치되어 있지 않습니다."
-  echo "먼저 0400_input-switch-shift-space.sh를 실행하세요."
+if [ ! -f "$SRC" ]; then
+  echo "오류: $SRC 가 없습니다."
   exit 1
 fi
-echo "  Karabiner-Elements 설치 확인됨"
 
-# ───────────────────────────────────────────
-# 2) Karabiner 설정 적용 (8BitDo 규칙 포함)
-# ───────────────────────────────────────────
-echo ""
-echo "Karabiner 설정 적용 중..."
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-mkdir -p ~/.config/karabiner
-cp "$SCRIPT_DIR/config/karabiner.json" ~/.config/karabiner/karabiner.json
-echo "  karabiner.json 복사 완료 (8BitDo Zero 2 규칙 포함)"
+if ! command -v swiftc &>/dev/null; then
+  echo "오류: swiftc가 없습니다. 먼저 0100_xcode-cli-tools.sh 실행."
+  exit 1
+fi
+
+echo "  swiftc로 빌드 중..."
+swiftc -O "$SRC" -o "$BIN"
+echo "  빌드 완료: $BIN"
 
 echo ""
 echo "========================================="
-echo "완료: 8BitDo Zero 2 페이지 넘기기 설정"
+echo "완료: 8BitDo Zero 2 PageFlip"
 echo "========================================="
 echo ""
-echo "※ 8BitDo Zero 2 연결 방법:"
-echo "  1. R + Start 동시 누르기 (키보드 모드, LED 5회 깜빡)"
-echo "  2. Select 3초 눌러 페어링 모드 진입"
-echo "  3. macOS Bluetooth 설정에서 '8BitDo Zero 2' 페어링"
+echo "※ 8BitDo Zero 2 연결 방법 (게임패드 모드):"
+echo "  1. A + Start 동시 누르기 (LED 3회 깜빡)"
+echo "  2. Select 3초 길게 → 페어링 모드"
+echo "  3. macOS Bluetooth에서 '8BitDo Zero 2' 페어링"
 echo "  4. 재연결: Start 버튼만 누르면 자동 연결"
 echo ""
-echo "※ 버튼 매핑:"
-echo "  - L 버튼 → Page Up (이전 페이지)"
-echo "  - R 버튼 → Page Down (다음 페이지)"
+echo "※ 실행:"
+echo "  $BIN"
 echo ""
-echo "※ 다른 키보드는 전혀 영향 없음 (device_if 조건)"
+echo "※ 버튼 매핑:"
+echo "  - 물리 A / R숄더 → Page Up"
+echo "  - 물리 Y / L숄더 → Page Down"
+echo "  - 물리 X         → ← (뒤로)"
+echo "  - 물리 B         → → (앞으로)"
 echo ""
 echo "상세 가이드: config/8BITDO.md"
