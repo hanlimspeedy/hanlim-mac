@@ -26,6 +26,7 @@ mac-setup/
 ├── 1100_startup-mute.sh            # 부팅 사운드 끄기
 ├── 1200_menubar-volume.sh          # 메뉴바 볼륨 아이콘 표시
 ├── 1300_smb-connect.sh             # Windows SMB 공유 폴더 연결
+├── 1310_cyberduck.sh               # Cyberduck FTP/SFTP/WebDAV/S3 GUI 클라이언트
 ├── 1400_claude-compose-bar.sh     # Claude Code Compose Bar (한글 입력 해결)
 ├── 1500_termius.sh                # Termius SSH 클라이언트
 ├── 1550_ghostty.sh                # Ghostty 터미널 (Claude Code + tmux 최적화)
@@ -62,6 +63,7 @@ cd ~/mac-setup
 ./1010_scroll-no-smooth.sh         # 스크롤 애니메이션 비활성화
 ./1100_startup-mute.sh             # 부팅 사운드 끄기
 ./1200_menubar-volume.sh           # 메뉴바 볼륨 아이콘 표시
+./1310_cyberduck.sh                # Cyberduck FTP/SFTP 클라이언트
 ./1400_claude-compose-bar.sh       # Claude Code Compose Bar (한글 입력)
 ./1500_termius.sh                  # Termius SSH 클라이언트
 ./1550_ghostty.sh                  # Ghostty 터미널 (로컬 Claude Code용)
