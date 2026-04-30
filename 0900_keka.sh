@@ -9,6 +9,9 @@ eval "$(/opt/homebrew/bin/brew shellenv)" 2>/dev/null
 if ! brew list --cask keka &>/dev/null; then
   echo "Keka 설치 중..."
   brew install --cask keka
+elif [ ! -d "/Applications/Keka.app" ]; then
+  echo "Keka Cask는 등록되어 있으나 /Applications/Keka.app 없음 — 재설치"
+  brew reinstall --cask keka
 else
   echo "Keka 이미 설치됨"
 fi
