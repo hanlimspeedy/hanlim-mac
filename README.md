@@ -29,6 +29,7 @@ mac-setup/
 ├── 1310_cyberduck.sh               # Cyberduck FTP/SFTP/WebDAV/S3 GUI 클라이언트
 ├── 1340_home-samba-link.sh        # /home autofs 해제 + samba 링크 + Finder 디스크/즐겨찾기
 ├── 1400_claude-compose-bar.sh     # Claude Code Compose Bar (한글 입력 해결)
+├── 1430_claude-reset-reinstall.sh # Claude Code/Desktop 완전 초기화 + 재설치 (dry-run 기본)
 ├── 1500_termius.sh                # Termius SSH 클라이언트
 ├── 1550_ghostty.sh                # Ghostty 터미널 (Claude Code + tmux 최적화)
 ├── 1600_vscode.sh                 # Visual Studio Code 설치
@@ -67,6 +68,7 @@ cd ~/mac-setup
 ./1310_cyberduck.sh                # Cyberduck FTP/SFTP 클라이언트
 ./1340_home-samba-link.sh          # /home autofs 해제 + samba 링크 + Finder 디스크/즐겨찾기 (1300 후 실행)
 ./1400_claude-compose-bar.sh       # Claude Code Compose Bar (한글 입력)
+./1430_claude-reset-reinstall.sh   # Claude Code/Desktop 초기화 후보 확인 (dry-run 기본)
 ./1500_termius.sh                  # Termius SSH 클라이언트
 ./1550_ghostty.sh                  # Ghostty 터미널 (로컬 Claude Code용)
 ./1600_vscode.sh                   # Visual Studio Code 설치
@@ -75,6 +77,36 @@ cd ~/mac-setup
 ./1800_telegram.sh                 # Telegram
 ./1900_8bitdo-pageflip.sh          # 8BitDo Zero 2 페이지 넘기기 (Swift CLI 빌드)
 ```
+
+### Claude Code/Desktop 완전 초기화 테스트 절차
+
+`1430_claude-reset-reinstall.sh` 는 반복 가능성을 위해 단계별 실행을 지원한다.
+테스트 중에는 `--step all` 또는 옵션 없는 전체 실행을 사용하지 말고, 아래 순서대로 한 단계씩 실행한다.
+
+```bash
+./1430_claude-reset-reinstall.sh --dry-run --step inventory
+./1430_claude-reset-reinstall.sh --execute --step stop
+./1430_claude-reset-reinstall.sh --execute --step uninstall-packages
+./1430_claude-reset-reinstall.sh --execute --step delete-apps
+./1430_claude-reset-reinstall.sh --execute --step delete-user-data
+./1430_claude-reset-reinstall.sh --execute --step delete-system
+./1430_claude-reset-reinstall.sh --execute --step delete-keychain
+./1430_claude-reset-reinstall.sh --execute --step reset-tcc
+./1430_claude-reset-reinstall.sh --execute --step project-local --include-project-local
+./1430_claude-reset-reinstall.sh --execute --step install-desktop
+./1430_claude-reset-reinstall.sh --execute --step install-code
+./1430_claude-reset-reinstall.sh --execute --step verify
+./1430_claude-reset-reinstall.sh --execute --step verify-clean
+```
+
+삭제 단계는 `rm -rfv` 또는 `sudo rm -rfv` 로 삭제되는 파일을 출력한다.
+Claude 앱 번들은 `Info.plist` bundle id 를 확인한 뒤에만 삭제한다.
+Claude Code 설정 백업인 `~/.claude.json.backup` 과 `~/.claude.json.backup.*` 도 사용자 데이터 삭제 단계에서 제거한다.
+프로젝트 로컬 `.claude` 삭제는 후보를 개별 확인한다.
+프로젝트 로컬 `.mcp.json` 은 파일 내용에 `claude` 또는 `anthropic` 이 들어간 경우만 후보로 올리며, `~/.codex` 내부는 삭제 후보에서 제외한다.
+Claude Desktop 직접 다운로드가 Cloudflare challenge 등으로 실패하면 스크립트는 Homebrew 공식 cask `claude` 를 `--appdir="$HOME/Applications"` 로 설치한다.
+스크립트는 단계 실행 중 Homebrew가 암묵적으로 auto-update 하지 않도록 `HOMEBREW_NO_AUTO_UPDATE=1` 을 기본 적용한다.
+`verify-clean` 단계는 `/Applications/Claude.app`, Desktop 데이터, Claude Code 백업, VS Code 확장 캐시, Keychain 항목, 프로젝트 로컬 후보가 남았는지 확인한다.
 
 ### 재부팅 후
 
