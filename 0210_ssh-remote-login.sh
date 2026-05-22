@@ -10,11 +10,20 @@ if [ "$current" = "On" ]; then
   echo "Remote Login 이미 켜져 있음"
 else
   echo "Remote Login 활성화 중..."
-  # 10.13+ 부터 -f 로 TCC 프롬프트 우회 (Full Disk Access 필요할 수 있음)
-  sudo systemsetup -setremotelogin on -f 2>/dev/null || sudo systemsetup -setremotelogin on
+  # 1차: systemsetup (macOS 13+ 에선 호출 터미널의 Full Disk Access 필요)
+  out=$(sudo systemsetup -setremotelogin on 2>&1)
+  [ -n "$out" ] && echo "  $out"
+
+  # 2차: systemsetup 차단되거나 여전히 Off 면 launchctl 로 직접 부팅
+  if echo "$out" | grep -qi "Full Disk Access" \
+     || [ "$(sudo systemsetup -getremotelogin 2>/dev/null | awk -F': ' '{print $2}')" != "On" ]; then
+    echo "  launchctl 로 sshd 활성화 시도"
+    sudo launchctl enable system/com.openssh.sshd 2>/dev/null || true
+    sudo launchctl bootstrap system /System/Library/LaunchDaemons/ssh.plist 2>/dev/null || true
+  fi
 fi
 
-# sshd LaunchDaemon 강제 활성화 (혹시 disable 되어 있을 경우 대비)
+# 혹시 disable 되어 있는 경우 대비 (이미 enable 되어 있으면 no-op)
 sudo launchctl enable system/com.openssh.sshd 2>/dev/null || true
 
 # 리스닝 확인
