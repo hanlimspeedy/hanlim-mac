@@ -28,7 +28,6 @@ mac-setup/
 ├── 1300_smb-connect.sh             # Windows SMB 공유 폴더 연결
 ├── 1310_cyberduck.sh               # Cyberduck FTP/SFTP/WebDAV/S3 GUI 클라이언트
 ├── 1340_home-samba-link.sh        # /home autofs 해제 + samba 링크 + Finder 디스크/즐겨찾기
-├── 1395_diag-codex-claude.sh     # codex/claude 환경 진단 → diag-results/<host>.txt
 ├── 1396_reset-codex-claude-env.sh # CODEX_HOME/CLAUDE_CONFIG_DIR launchd 해제 (sudo)
 ├── 1400_claude-compose-bar.sh     # Claude Code Compose Bar (한글 입력 해결)
 ├── 1430_claude-reset-reinstall.sh # Claude Code/Desktop 완전 초기화 + 재설치 (dry-run 기본)
