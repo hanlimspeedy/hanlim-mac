@@ -1,0 +1,79 @@
+════════════════════════════════════════════════════════════
+ codex / claude 환경 진단
+  host = imseunghwan-ui-MacBookPro   user = iam
+  date = 2026-05-22 20:19:55 +0900
+════════════════════════════════════════════════════════════
+
+── [1] 터미널 환경 ────────────────────────────
+TERM             = xterm-256color
+TERM_PROGRAM     = Apple_Terminal
+TERM_PROGRAM_VER = 470.2
+COLS x LINES     = 80 x 24
+LANG             = ko_KR.UTF-8
+LC_ALL           = 
+SHELL            = /bin/zsh
+부모 프로세스    = -zsh
+stty 상태(앞 3줄):
+   speed 9600 baud; 30 rows; 120 columns;
+   lflags: icanon isig iexten echo echoe -echok echoke -echonl echoctl
+   	-echoprt -altwerase -noflsh -tostop -flusho pendin -nokerninfo
+
+── [2] launchctl 환경 ────────────────────────────
+CODEX_HOME (launchctl)        = '/Volumes/ubuntu/.codex'
+CLAUDE_CONFIG_DIR (launchctl) = '/Volumes/ubuntu/.claude'
+
+── [3] 쉘 환경변수 ────────────────────────────
+CODEX_HOME (shell)        = '/Volumes/ubuntu/.codex'
+CLAUDE_CONFIG_DIR (shell) = '/Volumes/ubuntu/.claude'
+PATH 앞부분:
+   /Users/iam/.local/bin
+   /opt/homebrew/bin
+   /opt/homebrew/sbin
+   /usr/local/bin
+   /System/Cryptexes/App/usr/bin
+
+── [4] 디렉토리 존재 여부 ────────────────────────────
+  ✓ /Users/iam/.codex  drwxr-xr-x iam staff 480
+  ✓ /Users/iam/.claude  drwxr-xr-x iam staff 416
+  ✗ /Volumes/ubuntu  (없음)
+  ✗ /Volumes/ubuntu/.codex  (없음)
+  ✗ /Volumes/ubuntu/.claude  (없음)
+
+── [5] /Volumes 마운트 ────────────────────────────
+/dev/disk3s6 on /System/Volumes/VM (apfs, local, noexec, journaled, noatime, nobrowse)
+/dev/disk3s2 on /System/Volumes/Preboot (apfs, local, journaled, nobrowse)
+/dev/disk3s4 on /System/Volumes/Update (apfs, local, journaled, nobrowse)
+/dev/disk2s2 on /System/Volumes/xarts (apfs, local, noexec, journaled, noatime, nobrowse)
+/dev/disk2s1 on /System/Volumes/iSCPreboot (apfs, local, journaled, nobrowse)
+/dev/disk2s3 on /System/Volumes/Hardware (apfs, local, journaled, nobrowse)
+/dev/disk3s5 on /System/Volumes/Data (apfs, local, journaled, nobrowse, protect, root data)
+map auto_home on /System/Volumes/Data/home (autofs, automounted, nobrowse)
+
+── [6] LaunchAgents 잔재 ────────────────────────────
+~/Library/LaunchAgents:
+   com.hanlim.nfc-rename.plist
+CODEX/CLAUDE/Volumes 키 있는 plist:
+   (없음)
+
+── [7] shell init 파일 잔재 ────────────────────────────
+   (없음)
+
+── [8] 터미널 앱 plist 안에 환경변수 ────────────────────────────
+   (없음)
+
+── [9] codex / claude 바이너리 ────────────────────────────
+which codex  = /opt/homebrew/bin/codex
+which claude = /opt/homebrew/bin/claude
+  codex: WARNING: proceeding, even though we could not update PATH: CODEX_HOME points to "/Volumes/ubuntu/.codex", but that path does not exist
+  codex: codex-cli 0.130.0
+  claude: 2.1.148 (Claude Code)
+
+── [10] 현재 실행 중인 codex/claude 프로세스 ────────────────────────────
+    3937     1 iam              /Applications/Codex.app/Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate com.openai.codex /Users/iam iam
+    3938     1 iam              /Users/iam/Library/Caches/com.openai.codex/org.sparkle-project.Sparkle/Launcher/ZZBcUVieL/Updater.app/Contents/MacOS/Updater /Applications/Codex.app 0
+    3993  3963 iam              /bin/bash ./1395_diag-codex-claude.sh
+    4003  3993 iam              /bin/bash ./1395_diag-codex-claude.sh
+
+════════════════════════════════════════════════════════════
+ 저장 위치: /Users/iam/root-old/hanlim-mac/diag-results/imseunghwan-ui-MacBookPro.txt
+════════════════════════════════════════════════════════════
