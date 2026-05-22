@@ -1,13 +1,31 @@
 #!/bin/bash
 # codex / claude 의 외장 디스크 경로(CODEX_HOME, CLAUDE_CONFIG_DIR) 완전 해제.
 # 기본 경로(~/.codex, ~/.claude)로 되돌린다.
+#
+# 실행:
+#   sudo ./1396_reset-codex-claude-env.sh
+#
 # 반드시 그 맥의 GUI 터미널(Terminal.app / iTerm / Ghostty / Warp 등) 에서 실행.
-# SSH 비대화 세션은 launchd GUI domain 과 분리될 수 있어 부분 해제만 됨.
+# SSH 비대화 세션은 launchd GUI domain (gui/UID) 과 분리되어 있어, 거기서
+# 실행하면 GUI 의 환경변수는 안 지워질 수 있다 (asuser 로 우회).
+#
+# 실행 후:
+#   1) 이미 떠 있는 모든 Terminal/iTerm 종료 (⌘Q)
+#   2) 새 터미널 열고 echo "$CODEX_HOME / $CLAUDE_CONFIG_DIR" 가 빈 값인지 확인
+#   3) codex / claude 실행 → ~/.codex / ~/.claude 사용
 
 set -u
 
-UID_NUM=$(id -u)
+# sudo 로 실행됐을 때 실제 로그인 사용자의 UID 가 필요 (SUDO_UID).
+# 그냥 실행되면 id -u 사용.
+UID_NUM="${SUDO_UID:-$(id -u)}"
 GUI="gui/$UID_NUM"
+
+# sudo 로 안 들어왔으면 안내만 하고 sudo 가 필요한 부분은 실패 허용
+if [ "$(id -u)" != "0" ]; then
+  echo "(권장: 'sudo ./1396_reset-codex-claude-env.sh' 로 실행 — GUI 도메인 정리에 필요)"
+  echo ""
+fi
 
 echo "════════════════════════════════════════════════════════════"
 echo " CODEX_HOME / CLAUDE_CONFIG_DIR 외장경로 해제"
@@ -82,12 +100,8 @@ echo "════════════════════════�
 echo " 완료."
 echo ""
 echo "주의:"
-echo " - 이 스크립트는 launchctl env (다음 자식 프로세스 부터 반영) 만 비운다."
-echo " - 이미 떠 있는 터미널/앱 의 자체 환경변수는 안 바뀐다."
-echo " - 따라서 ⌘Q 로 Terminal/iTerm 등 모든 터미널 종료 후 새로 열고 codex/claude 실행."
-echo " - 그래도 \$CODEX_HOME / \$CLAUDE_CONFIG_DIR 가 다시 박혀있으면 → 재로그아웃."
-echo ""
-echo "그리고 1390_claude-config-dir.sh / 1640_codex-home.sh 를 다시 실행하면"
-echo "같은 증상 재발한다. 외장 디스크 경로를 쓰지 않을 거면 그 두 스크립트는"
-echo "실행하지 말 것."
+echo " - launchctl env 는 다음에 spawn 되는 자식 프로세스부터 반영된다."
+echo " - 이미 떠 있는 Terminal/iTerm 등 의 자체 환경은 안 바뀐다."
+echo " - ⌘Q 로 모든 터미널 종료 후 새 창에서 codex / claude 실행."
+echo " - 그래도 \$CODEX_HOME / \$CLAUDE_CONFIG_DIR 가 살아있으면 → 재로그아웃."
 echo "════════════════════════════════════════════════════════════"
