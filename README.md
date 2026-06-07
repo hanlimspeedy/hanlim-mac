@@ -32,7 +32,6 @@ mac-setup/
 ├── 1400_claude-compose-bar.sh     # Claude Code Compose Bar (한글 입력 해결)
 ├── 1430_claude-reset-reinstall.sh # Claude Code/Desktop 완전 초기화 + 재설치 (dry-run 기본)
 ├── 1500_termius.sh                # Termius SSH 클라이언트
-├── 1550_ghostty.sh                # Ghostty 터미널 (Claude Code + tmux 최적화)
 ├── 1600_vscode.sh                 # Visual Studio Code 설치
 ├── 1610_vscode-bold-font.sh       # VS Code 굵은 폰트 설정 (Noto Sans KR Black)
 ├── 1700_kakaotalk.sh              # KakaoTalk (Mac App Store)
@@ -71,7 +70,6 @@ cd ~/mac-setup
 ./1400_claude-compose-bar.sh       # Claude Code Compose Bar (한글 입력)
 ./1430_claude-reset-reinstall.sh   # Claude Code/Desktop 초기화 후보 확인 (dry-run 기본)
 ./1500_termius.sh                  # Termius SSH 클라이언트
-./1550_ghostty.sh                  # Ghostty 터미널 (로컬 Claude Code용)
 ./1600_vscode.sh                   # Visual Studio Code 설치
 ./1610_vscode-bold-font.sh         # VS Code 굵은 폰트 설정
 ./1700_kakaotalk.sh                # KakaoTalk
