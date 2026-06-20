@@ -8,6 +8,19 @@
 | Num Lock 숫자패드 탐색키 | complex_modifications + variable toggle | 완료 |
 | Shift+Space 한영전환 | complex_modifications + macOS 입력 소스 단축키(Ctrl+Option+Space) | 완료 |
 
+## 적용 범위
+
+Karabiner 앱/드라이버는 시스템 전체에 설치되지만, 아래 항목은 사용자별이다.
+
+- `~/.config/karabiner/karabiner.json`
+- `com.apple.symbolichotkeys`
+- `com.apple.HIToolbox`
+
+다른 macOS 사용자 계정에는 자동 적용되지 않는다. 각 사용자로 로그인한 뒤
+`/Users/Shared/root/hanlim-mac/0400_input-switch-shift-space.sh`를 실행해야 한다.
+최초 실행 후에는 해당 사용자 세션에서 Karabiner 입력 모니터링/접근성 권한을
+허용해야 할 수 있다.
+
 ## 적용된 단축키 목록
 
 | 윈도우 단축키 | macOS 동작 | 비고 |

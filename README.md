@@ -116,6 +116,20 @@ Claude Desktop 직접 다운로드가 Cloudflare challenge 등으로 실패하�
 
 상세 설정 가이드, 트러블슈팅, 참고 자료는 [config/KARABINER.md](config/KARABINER.md) 참조.
 
+### 다른 사용자 계정
+
+Karabiner 앱/드라이버는 시스템 전체에 설치되지만, Karabiner 설정과 macOS 입력
+소스 단축키 설정은 사용자별이다. 다른 macOS 사용자 계정에는 자동 적용되지
+않으므로, 해당 계정으로 로그인한 뒤 아래를 실행한다.
+
+```bash
+cd /Users/Shared/root/hanlim-mac
+./0400_input-switch-shift-space.sh
+```
+
+최초 실행 후에는 그 사용자 세션에서 Karabiner 입력 모니터링/접근성 권한을
+허용해야 할 수 있다.
+
 ## 8BitDo Zero 2 (페이지 넘기기)
 
 8BitDo Zero 2를 macOS 게임패드 모드(A+Start)로 연결, Swift CLI 도구
