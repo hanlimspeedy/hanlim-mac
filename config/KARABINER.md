@@ -6,7 +6,7 @@
 |------|------|------|
 | 윈도우 스타일 단축키 (13개) | complex_modifications | 완료 |
 | Num Lock 숫자패드 탐색키 | complex_modifications + variable toggle | 완료 |
-| Shift+Space 한영전환 | complex_modifications + select_input_source | 완료 |
+| Shift+Space 한영전환 | complex_modifications + macOS 입력 소스 단축키(Ctrl+Option+Space) | 완료 |
 
 ## 적용된 단축키 목록
 
@@ -60,9 +60,19 @@ Karabiner 변수(`num_lock_off`) 토글로 윈도우와 동일한 Num Lock 동�
 ## Shift+Space 한영전환
 
 ### 방식
-`select_input_source`로 입력 소스를 직접 지정하여 전환.
-- `input_source_if` 조건으로 현재 입력 소스 판별
-- 영어(ABC) → 한국어(두벌식), 한국어 → 영어 각각 별도 규칙
+Karabiner에서 `Shift+Space`를 macOS의 `Ctrl+Option+Space` 입력 소스 전환
+단축키로 변환한다. 설치 스크립트는 macOS의 "Select next source in Input
+menu" 단축키를 `Ctrl+Option+Space`로 활성화한다.
+
+또한 앱/문서별 입력 소스 자동 전환(`TextInputGlobalPropertyPerContextInput`)을
+끈다. 이 옵션이 켜져 있으면 메뉴바 표시는 바뀌었는데 현재 터미널 입력
+컨텍스트는 이전 입력 소스를 유지하는 식의 불일치가 생길 수 있다.
+
+Caps Lock으로 우회하면 macOS 업데이트 후 실제 Caps Lock 토글이 발생해
+첫 글자가 대문자로 입력될 수 있어 사용하지 않는다. Karabiner의
+`select_input_source`나 별도 helper로 입력 소스를 직접 바꾸면 한국어 같은
+CJK 입력 소스에서 표시만 바뀌고 실제 입력 컨텍스트가 갱신되지 않을 수 있어
+사용하지 않는다.
 
 ### 입력 소스 ID
 - 두벌식: `com.apple.inputmethod.Korean.2SetKorean`

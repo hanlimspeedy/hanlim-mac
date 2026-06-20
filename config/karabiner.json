@@ -6,7 +6,7 @@
       "complex_modifications": {
         "rules": [
           {
-            "description": "Shift+Space to CapsLock (input source switch)",
+            "description": "Shift+Space => Ctrl+Option+Space (next input source)",
             "manipulators": [
               {
                 "type": "basic",
@@ -23,7 +23,11 @@
                 },
                 "to": [
                   {
-                    "key_code": "caps_lock"
+                    "key_code": "spacebar",
+                    "modifiers": [
+                      "left_control",
+                      "left_option"
+                    ]
                   }
                 ]
               }
@@ -434,14 +438,7 @@
                     ]
                   }
                 ],
-                "conditions": [
-                  {
-                    "type": "frontmost_application_unless",
-                    "bundle_identifiers": [
-                      "^com\\.apple\\.Terminal$"
-                    ]
-                  }
-                ]
+                "conditions": []
               },
               {
                 "type": "basic",
@@ -464,14 +461,7 @@
                     ]
                   }
                 ],
-                "conditions": [
-                  {
-                    "type": "frontmost_application_unless",
-                    "bundle_identifiers": [
-                      "^com\\.apple\\.Terminal$"
-                    ]
-                  }
-                ]
+                "conditions": []
               }
             ]
           },
@@ -496,13 +486,7 @@
                     ]
                   }
                 ],
-                "conditions": [
-                  {
-                    "type": "variable_if",
-                    "name": "num_lock_off",
-                    "value": 1
-                  }
-                ]
+                "conditions": []
               },
               {
                 "type": "basic",
@@ -522,13 +506,7 @@
                     ]
                   }
                 ],
-                "conditions": [
-                  {
-                    "type": "variable_if",
-                    "name": "num_lock_off",
-                    "value": 1
-                  }
-                ]
+                "conditions": []
               },
               {
                 "type": "basic",
