@@ -5,14 +5,38 @@ echo "==> Karabiner-Elements 설치 + Shift+Space 한영전환 + Ctrl↔Cmd 스�
 
 eval "$(/opt/homebrew/bin/brew shellenv)" 2>/dev/null
 
+KARABINER_CONFIG_DIR="$HOME/.config/karabiner"
+KARABINER_CONFIG="$KARABINER_CONFIG_DIR/karabiner.json"
+KARABINER_STATE="/Library/Application Support/org.pqrs/tmp/karabiner_core_service_state.json"
+KARABINER_CLI="/Library/Application Support/org.pqrs/Karabiner-Elements/bin/karabiner_cli"
+JQ="$(command -v jq || true)"
+EXTERNAL_KEYBOARD_VENDOR_DEC=9639
+EXTERNAL_KEYBOARD_PRODUCT_DEC=64097
+EXTERNAL_KEYBOARD_VENDOR_HEX=0x25a7
+EXTERNAL_KEYBOARD_PRODUCT_HEX=0xfa61
+
 # Karabiner-Elements 설치
 if ! brew list --cask karabiner-elements &>/dev/null; then
   brew install --cask karabiner-elements
 fi
 
 # Karabiner 설정 복사
-mkdir -p ~/.config/karabiner
-cp "$(dirname "$0")/config/karabiner.json" ~/.config/karabiner/karabiner.json
+mkdir -p "$KARABINER_CONFIG_DIR"
+cp "$(dirname "$0")/config/karabiner.json" "$KARABINER_CONFIG"
+
+# 설정에 2.4G 외장 키보드 HID가 포함되어 있는지 검증한다.
+if [ -z "$JQ" ]; then
+  echo "오류: jq가 없어 Karabiner 설정을 검증할 수 없습니다." >&2
+  exit 1
+fi
+if ! "$JQ" -e \
+  --argjson vendor "$EXTERNAL_KEYBOARD_VENDOR_DEC" \
+  --argjson product "$EXTERNAL_KEYBOARD_PRODUCT_DEC" \
+  '.profiles[].devices[]? | select(.identifiers.vendor_id == $vendor and .identifiers.product_id == $product and .identifiers.is_keyboard == true)' \
+  "$KARABINER_CONFIG" >/dev/null; then
+  echo "오류: Karabiner 설정에 2.4G 외장 키보드 HID가 없습니다: vendor=$EXTERNAL_KEYBOARD_VENDOR_DEC product=$EXTERNAL_KEYBOARD_PRODUCT_DEC" >&2
+  exit 1
+fi
 
 # macOS 입력 소스 전환 단축키 활성화: Ctrl+Option+Space
 # Karabiner는 Shift+Space를 이 단축키로 변환한다.
@@ -25,10 +49,50 @@ killall cfprefsd 2>/dev/null || true
 killall TextInputMenuAgent 2>/dev/null || true
 killall keyboardservicesd 2>/dev/null || true
 
+# Karabiner 설정 재로드. 실패해도 아래 진단에서 원인을 보여준다.
+if [ -x "$KARABINER_CLI" ]; then
+  "$KARABINER_CLI" --select-profile "Windows Style" >/dev/null 2>&1 || true
+fi
+if sudo -n true 2>/dev/null; then
+  sudo launchctl kickstart -k system/org.pqrs.service.daemon.Karabiner-Core-Service >/dev/null 2>&1 || true
+  sudo launchctl kickstart -k system/org.pqrs.service.daemon.Karabiner-VirtualHIDDevice-Daemon >/dev/null 2>&1 || true
+fi
+launchctl kickstart -k "gui/$(id -u)/org.pqrs.service.agent.karabiner_console_user_server" >/dev/null 2>&1 || true
+sleep 3
+
 echo ""
 echo "완료: Karabiner-Elements 설정 적용"
-echo "  - Ctrl ↔ Cmd 스왑 (윈도우 스타일)"
+echo "  - 2.4G 외장 키보드($EXTERNAL_KEYBOARD_VENDOR_HEX/$EXTERNAL_KEYBOARD_PRODUCT_HEX) Ctrl ↔ Cmd 스왑"
 echo "  - Shift+Space → Ctrl+Option+Space → 한영전환 (두벌식 ↔ ABC)"
+echo ""
+echo "진단:"
+if command -v hidutil >/dev/null 2>&1; then
+  if hidutil list --matching '{"PrimaryUsagePage":1,"PrimaryUsage":6}' 2>/dev/null | grep -qi "2.4G Receiver"; then
+    echo "  - 2.4G Receiver 키보드 감지됨"
+  else
+    echo "  - 주의: 현재 2.4G Receiver 키보드가 감지되지 않음"
+  fi
+fi
+if [ -f "$KARABINER_STATE" ]; then
+  hid_device_open_permitted="$("$JQ" -r 'if has("hid_device_open_permitted") then .hid_device_open_permitted else empty end' "$KARABINER_STATE" 2>/dev/null)"
+  if [ -n "$hid_device_open_permitted" ]; then
+    echo "  - hid_device_open_permitted=$hid_device_open_permitted"
+  fi
+  if [ "$hid_device_open_permitted" = "false" ]; then
+    echo "  - 오류: Karabiner-Core-Service가 입력 장치를 열 권한이 없음"
+    echo "    시스템 설정 > 개인정보 보호 및 보안 > 입력 모니터링에서 Karabiner-Core-Service 허용 필요"
+    pkill -x Karabiner-EventViewer 2>/dev/null || true
+    open -n -a "Karabiner-Elements" --args input-monitoring-macos26 >/dev/null 2>&1 || true
+    open "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent" >/dev/null 2>&1 || true
+  fi
+fi
+if [ -x "$KARABINER_CLI" ]; then
+  cli_devices_output="$("$KARABINER_CLI" --list-connected-devices 2>&1 || true)"
+  if printf "%s\n" "$cli_devices_output" | grep -q "error:"; then
+    echo "  - 오류: karabiner_cli가 Core Service에 연결하지 못함"
+    echo "    Karabiner 권한 허용 후 앱 또는 재로그인이 필요할 수 있음"
+  fi
+fi
 echo ""
 echo "※ 최초 설치 시 Karabiner-Elements 실행 후 아래 권한 허용 필요:"
 echo "  1. 입력 모니터링: Karabiner-Core-Service"

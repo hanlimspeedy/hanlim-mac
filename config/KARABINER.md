@@ -7,6 +7,7 @@
 | 윈도우 스타일 단축키 (13개) | complex_modifications | 완료 |
 | Num Lock 숫자패드 탐색키 | complex_modifications + variable toggle | 완료 |
 | Shift+Space 한영전환 | complex_modifications + macOS 입력 소스 단축키(Ctrl+Option+Space) | 완료 |
+| 2.4G 외장 키보드 Ctrl↔Cmd | device simple_modifications | 완료 |
 
 ## 적용 범위
 
@@ -22,6 +23,24 @@ Karabiner 앱/드라이버는 시스템 전체에 설치되지만, 아래 항목
 허용해야 할 수 있다.
 
 ## 적용된 단축키 목록
+
+### 2.4G 외장 키보드
+
+B.O.W HD315 2.4G 리시버는 아래 HID로 잡힌다.
+
+- Vendor ID: `0x25a7` / `9639`
+- Product ID: `0xfa61` / `64097`
+- Product: `2.4G Receiver`
+
+이 장치에만 `left_option`↔`left_command`, `right_option`↔`right_command`
+스왑을 적용한다. 블루투스 연결은 다른 HID로 잡히며 Mac 레이아웃을 쓰므로
+이 매핑 대상이 아니다.
+
+확인:
+
+```sh
+hidutil list --matching '{"PrimaryUsagePage":1,"PrimaryUsage":6}'
+```
 
 | 윈도우 단축키 | macOS 동작 | 비고 |
 |--------------|-----------|------|
@@ -90,6 +109,43 @@ CJK 입력 소스에서 표시만 바뀌고 실제 입력 컨텍스트가 갱신
 ### 입력 소스 ID
 - 두벌식: `com.apple.inputmethod.Korean.2SetKorean`
 - ABC: `com.apple.keylayout.ABC`
+
+## 트러블슈팅
+
+`~/.config/karabiner/karabiner.json`이 맞는데 모든 Karabiner 설정이 동작하지
+않으면 설정 파일보다 Core Service 권한/연결 상태를 먼저 확인한다.
+
+```sh
+jq . "/Library/Application Support/org.pqrs/tmp/karabiner_core_service_state.json"
+karabiner_cli --list-connected-devices
+```
+
+`hid_device_open_permitted=false` 또는
+`core_service_client connect_failed`가 나오면 Karabiner가 입력 장치를 열지
+못하는 상태다. 시스템 설정 > 개인정보 보호 및 보안 > 입력 모니터링에서
+`Karabiner-Core-Service`를 허용한 뒤 Karabiner를 재시작하거나 재로그인한다.
+
+### 입력 모니터링 목록에 Core Service가 없을 때
+
+실수 금지: `Karabiner-EventViewer`를 열면 안 된다. EventViewer는 키 입력
+확인 도구이고, 켜져 있으면 Karabiner modifications를 임시로 비활성화할 수도
+있다. 입력 모니터링 목록에 EventViewer만 보이면 문제 해결 경로가 아니다.
+
+`Karabiner-Core-Service`를 입력 모니터링 목록에 추가하려면 Karabiner 설정 앱의
+권한 안내 모드를 직접 연다.
+
+```sh
+pkill -x Karabiner-EventViewer 2>/dev/null || true
+open -n -a "Karabiner-Elements" --args input-monitoring-macos26
+open "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent"
+```
+
+그 뒤 시스템 설정 > 개인정보 보호 및 보안 > 입력 모니터링에서
+`Karabiner-Core-Service`를 켠다. 정상 상태에서는 같은 목록에
+`Karabiner-Core-Service`와 `Karabiner-EventViewer`가 모두 보일 수 있지만,
+필수 항목은 `Karabiner-Core-Service`다.
+
+설치 스크립트는 이 상태를 진단하고 입력 모니터링 설정 화면을 연다.
 
 ## 참고 자료
 
