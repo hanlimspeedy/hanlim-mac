@@ -79,7 +79,11 @@ IVY_IMAGE=ivorysql/ivorysql:3.4-ubi8   IVY_CONTAINER=ora2pg-ivory
 
 ## 4. 재실행 / 초기화
 
-- **타깃을 깨끗이 비우고 다시 적재**하려면: `bin/reset-target pg` 또는 `bin/reset-target ivory`
+- **전체 초기화(추출물 + 두 타깃 모두)**: `bin/clean-conversion`
+  - `output/`의 모든 생성물(추출 파일·적재 로그·검증·리포트)을 지우고, `sample_pg`·`sample_ivory`를
+    DROP 후 빈 상태로 재생성한다. **Oracle 샘플 데이터를 다시 만든 뒤** 이걸 돌리고 step-15부터 재실행하면 된다.
+  - 전제: PostgreSQL(step-10)과 IvorySQL 컨테이너(step-12)가 떠 있어야 한다.
+- **한쪽 타깃만 비우고 다시 적재**하려면: `bin/reset-target pg` 또는 `bin/reset-target ivory`
   (해당 DB를 DROP 후 create step 재실행). 그 다음 step-17~20을 다시 돌린다.
 - **임의 타깃에 직접 psql** 접속: `bin/pg-psql pg ...` / `bin/pg-psql ivory ...`
 - IvorySQL 컨테이너 중지/삭제: `docker stop ora2pg-ivory` / `docker rm -f ora2pg-ivory` (step-12가 다시 만든다).

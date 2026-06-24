@@ -52,6 +52,7 @@ The same Ora2Pg export is loaded into two targets and compared. See
 - `bin/pg-psql <pg|ivory>`: run psql against a selected target
 - `bin/load-sql-dir <pg|ivory> <dir> <log>`: load all `*.sql` in a dir, logging errors
 - `bin/reset-target <pg|ivory>`: drop and recreate a target db for a clean reload
+- `bin/clean-conversion`: remove all conversion artifacts and reset both targets (full reset before re-running)
 - `config/tnsnames.ora`: local TNS alias for `ORCL248`
 - `config/ora2pg.conf.template`: template rendered at runtime
 - `sql/01_show_db_state.sql`: remote SYSDBA health check

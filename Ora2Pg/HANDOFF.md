@@ -257,6 +257,7 @@
 - 데이터 export는 `PG_DSN=""`로 파일 추출(아니면 PG로 직접 스트리밍됨).
 - FK는 `FKEY_DEFERRABLE 1`+`DEFER_FKEY 1`로 deferrable + 적재 트랜잭션에서 deferred 처리(적재 순서 무관).
 - 깨끗이 다시 적재하려면 `bin/reset-target pg|ivory` 후 step-17~20 재실행.
+- **전체 초기화**(추출물 + 두 타깃 모두)는 `bin/clean-conversion`. Oracle 샘플 데이터를 재생성한 뒤 이걸 돌리고 step-15부터 다시 실행한다.
 
 ## 권장 시작점
 
