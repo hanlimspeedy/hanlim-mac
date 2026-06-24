@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Drop and recreate a migration target database for a clean (re)load.
+#   reset-target pg      -> drop sample_pg,    re-run step-11
+#   reset-target ivory   -> drop sample_ivory, re-run step-13
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck disable=SC1091
+. "$PROJECT_DIR/bin/env.sh"
+
+TARGET="${1:-}"
+case "$TARGET" in
+  pg)
+    sudo -u postgres psql -v ON_ERROR_STOP=1 -c "DROP DATABASE IF EXISTS ${PG_DB} WITH (FORCE);"
+    exec "$PROJECT_DIR/bin/step-11-create-pg-target" ;;
+  ivory)
+    PGPASSWORD="$IVY_PASSWORD" psql -h "$IVY_HOST" -p "$IVY_PORT" -U "$IVY_SUPERUSER" \
+      -d "$IVY_SUPERUSER" -v ON_ERROR_STOP=1 -c "DROP DATABASE IF EXISTS ${IVY_DB} WITH (FORCE);"
+    exec "$PROJECT_DIR/bin/step-13-create-ivory-target" ;;
+  *)
+    echo "usage: $(basename "$0") <pg|ivory>" >&2
+    exit 64 ;;
+esac

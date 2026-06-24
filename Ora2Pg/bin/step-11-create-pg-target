@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck disable=SC1091
+. "$PROJECT_DIR/bin/env.sh"
+
+: "${PG_APP_USER:?Set PG_APP_USER in .oracle.env}"
+: "${PG_APP_PASSWORD:?Set PG_APP_PASSWORD in .oracle.env}"
+: "${PG_DB:?Set PG_DB in .oracle.env}"
+
+TMP_SQL="$(mktemp)"
+trap 'rm -f "$TMP_SQL"' EXIT
+
+PG_APP_USER="$PG_APP_USER" \
+PG_APP_PASSWORD="$PG_APP_PASSWORD" \
+PG_DB="$PG_DB" \
+perl -0pe '
+  s/__PG_APP_USER__/$ENV{PG_APP_USER}/g;
+  s/__PG_APP_PASSWORD__/$ENV{PG_APP_PASSWORD}/g;
+  s/__PG_DB__/$ENV{PG_DB}/g;
+' "$PROJECT_DIR/sql/10_create_pg_target.sql.template" > "$TMP_SQL"
+
+# Stdin redirect (not -f) so the postgres user inherits an already-open fd.
+sudo -u postgres psql -v ON_ERROR_STOP=1 < "$TMP_SQL"
+echo "OK: role $PG_APP_USER and database $PG_DB ready"

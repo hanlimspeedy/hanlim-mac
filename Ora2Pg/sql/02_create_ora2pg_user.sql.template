@@ -1,0 +1,39 @@
+whenever sqlerror exit failure rollback
+set verify off feedback on echo on
+
+declare
+  v_exists number := 0;
+begin
+  select count(*)
+    into v_exists
+    from dba_users
+   where username = upper('__ORA2PG_DB_USER__');
+
+  if v_exists = 0 then
+    execute immediate q'[create user __ORA2PG_DB_USER__ identified by "__ORA2PG_DB_PASSWORD__"]';
+  else
+    execute immediate q'[alter user __ORA2PG_DB_USER__ identified by "__ORA2PG_DB_PASSWORD__"]';
+  end if;
+end;
+/
+
+grant create session to __ORA2PG_DB_USER__;
+grant select_catalog_role to __ORA2PG_DB_USER__;
+grant select any dictionary to __ORA2PG_DB_USER__;
+grant connect to __ORA2PG_DB_USER__;
+grant resource to __ORA2PG_DB_USER__;
+-- Required for Ora2Pg consistent data export (SELECT ... AS OF SCN).
+grant flashback any table to __ORA2PG_DB_USER__;
+
+begin
+  for r in (
+    select owner, table_name
+      from dba_tables
+     where owner = upper('__ORA2PG_SCHEMA__')
+  ) loop
+    execute immediate 'grant select on ' || r.owner || '.' || r.table_name || ' to __ORA2PG_DB_USER__';
+  end loop;
+end;
+/
+
+exit

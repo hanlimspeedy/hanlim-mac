@@ -1,0 +1,23 @@
+-- Create the Ora2Pg application role and target database (idempotent).
+-- Rendered by bin/step-11-create-pg-target, run as the postgres superuser.
+
+-- Role: create only if missing, then always (re)set the login password.
+SELECT 'CREATE ROLE __PG_APP_USER__ LOGIN'
+ WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = '__PG_APP_USER__')
+\gexec
+ALTER ROLE __PG_APP_USER__ WITH LOGIN PASSWORD '__PG_APP_PASSWORD__';
+
+-- Schema-owner role: the Ora2Pg export sets the schema owner to the original
+-- Oracle owner ("sample"). Create it (NOLOGIN) and let the app user assume it
+-- so the same export loads unchanged into both targets.
+SELECT 'CREATE ROLE sample NOLOGIN'
+ WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sample')
+\gexec
+GRANT sample TO __PG_APP_USER__;
+
+-- Database: CREATE DATABASE cannot use IF NOT EXISTS, so guard with \gexec.
+-- Pin UTF8 + C collation so both targets are identical and aligned with
+-- Ora2Pg data validation (which expects C to match Oracle's binary sort).
+SELECT 'CREATE DATABASE __PG_DB__ OWNER __PG_APP_USER__ TEMPLATE template0 ENCODING ''UTF8'' LC_COLLATE ''C'' LC_CTYPE ''C'''
+ WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = '__PG_DB__')
+\gexec

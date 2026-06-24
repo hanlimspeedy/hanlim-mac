@@ -1,0 +1,5 @@
+output/
+.oracle.env
+.env
+downloads/
+ora2pg-src/

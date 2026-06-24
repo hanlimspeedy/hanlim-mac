@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck disable=SC1091
+. "$PROJECT_DIR/bin/env.sh"
+
+PGPSQL="$PROJECT_DIR/bin/pg-psql"
+
+echo "=== PostgreSQL target (${PG_HOST}:${PG_PORT}/${PG_DB}) ==="
+"$PGPSQL" pg -tAc "select version();"
+"$PGPSQL" pg -tAc "select 'encoding=' || pg_encoding_to_char(encoding) || ' collate=' || datcollate from pg_database where datname = current_database();"
+
+echo
+echo "=== IvorySQL target (${IVY_HOST}:${IVY_PORT}/${IVY_DB}) ==="
+"$PGPSQL" ivory -tAc "select version();"
+"$PGPSQL" ivory -tAc "select 'encoding=' || pg_encoding_to_char(encoding) || ' collate=' || datcollate from pg_database where datname = current_database();"
+echo "-- IvorySQL Oracle-compatibility settings --"
+"$PGPSQL" ivory -c "select name, setting from pg_settings where name like 'ivorysql%';"
+
+echo
+echo "OK: both targets reachable"

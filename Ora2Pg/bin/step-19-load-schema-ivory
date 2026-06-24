@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+set -euo pipefail
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+exec "$PROJECT_DIR/bin/load-sql-dir" ivory \
+  "$PROJECT_DIR/output/export/schema" \
+  "$PROJECT_DIR/output/load/ivory-schema.log"

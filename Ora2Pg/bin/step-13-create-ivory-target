@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck disable=SC1091
+. "$PROJECT_DIR/bin/env.sh"
+
+: "${IVY_PASSWORD:?Set IVY_PASSWORD in .oracle.env}"
+: "${IVY_DB:?Set IVY_DB in .oracle.env}"
+
+TMP_SQL="$(mktemp)"
+trap 'rm -f "$TMP_SQL"' EXIT
+
+IVY_DB="$IVY_DB" \
+perl -0pe 's/__IVY_DB__/$ENV{IVY_DB}/g' \
+  "$PROJECT_DIR/sql/11_create_ivory_target.sql.template" > "$TMP_SQL"
+
+# Connect to the default database (named after the superuser) to create the target db.
+PGPASSWORD="$IVY_PASSWORD" psql -h "$IVY_HOST" -p "$IVY_PORT" -U "$IVY_SUPERUSER" \
+  -d "$IVY_SUPERUSER" -v ON_ERROR_STOP=1 < "$TMP_SQL"
+echo "OK: database $IVY_DB ready on IvorySQL"

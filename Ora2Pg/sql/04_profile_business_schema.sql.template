@@ -1,0 +1,18 @@
+set pagesize 200 linesize 200 heading on feedback on verify off echo off
+col table_name format a30
+col row_count format 999999999
+
+select 'DEPARTMENTS' as table_name, count(*) as row_count from __ORA_SCHEMA__.departments
+union all
+select 'EMPLOYEES' as table_name, count(*) as row_count from __ORA_SCHEMA__.employees
+union all
+select 'PRODUCTS' as table_name, count(*) as row_count from __ORA_SCHEMA__.products
+union all
+select 'CUSTOMERS' as table_name, count(*) as row_count from __ORA_SCHEMA__.customers
+union all
+select 'ORDERS' as table_name, count(*) as row_count from __ORA_SCHEMA__.orders
+union all
+select 'ORDER_ITEMS' as table_name, count(*) as row_count from __ORA_SCHEMA__.order_items
+order by table_name;
+
+exit

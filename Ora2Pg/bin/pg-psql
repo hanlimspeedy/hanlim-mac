@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Run psql against a selected migration target.
+#   pg-psql pg     [psql args...]   -> native PostgreSQL  (PG_*  vars)
+#   pg-psql ivory  [psql args...]   -> IvorySQL container (IVY_* vars)
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck disable=SC1091
+. "$PROJECT_DIR/bin/env.sh"
+
+TARGET="${1:-}"
+shift || true
+
+case "$TARGET" in
+  pg)
+    host="$PG_HOST"; port="$PG_PORT"; db="$PG_DB"; user="$PG_APP_USER"; pw="$PG_APP_PASSWORD" ;;
+  ivory)
+    host="$IVY_HOST"; port="$IVY_PORT"; db="$IVY_DB"; user="$IVY_SUPERUSER"; pw="$IVY_PASSWORD" ;;
+  *)
+    echo "usage: $(basename "$0") <pg|ivory> [psql args...]" >&2
+    exit 64 ;;
+esac
+
+exec env PGPASSWORD="$pw" psql -h "$host" -p "$port" -U "$user" -d "$db" "$@"
