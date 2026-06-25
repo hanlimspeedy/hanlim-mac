@@ -244,20 +244,27 @@
 - 두 타깃 모두 **UTF8 + C collation**(한글 안전 + Ora2Pg 검증 정합)
 - Oracle `SAMPLE`를 Ora2Pg로 한 번 추출(`output/export/`) → 동일 산출물을 양쪽에 적재 → 비교
 
-결과 (`output/COMPATIBILITY_REPORT.md`):
+결과 (`output/COMPATIBILITY_REPORT.md`) — **풍부한 SAMPLE 스키마**(테이블 11+파티션, 시퀀스 6, 함수/프로시저/패키지,
+트리거 6, 뷰 7, MVIEW 2, identity/생성컬럼/LOB/RANGE 파티셔닝) 기준:
 
-- 두 DB **모두 적재 오류 0**, 행 수 100% 일치, 구조검증 19개 항목 모두 OK.
-- 이 스키마(테이블/제약/인덱스 중심, PL/SQL 없음)에서는 호환성 차이가 드러나지 않음.
-- IvorySQL은 `enable_emptystring_to_NULL=on`, `database_mode=oracle` 등 오라클 의미를 엔진에 내장 →
-  오라클 PL/SQL·함수·빈문자열 의존 코드가 많아질수록 IvorySQL이 유리할 가능성.
+- **데이터**: 두 타깃 모두 적재 오류 0, 행 수 100% 일치(customers 15000 / order_items 100600 / orders 35300 등).
+- **스키마(PLSQL/DDL)**: PG·IvorySQL **둘 다 9 적재오류 + 23 구조 DIFF — 완전히 동일**.
+- **핵심 결론: 이 Ora2Pg 경로에서는 PostgreSQL ≈ IvorySQL.** Ora2Pg가 오라클→PostgreSQL 문법으로 먼저 변환하므로
+  두 타깃이 같은 산출물을 받고, IvorySQL의 오라클 호환 엔진이 작동할 기회가 없다. 남은 오류는 둘 다 거부하는
+  Ora2Pg 변환 한계(COMPOUND TRIGGER, RATIO_TO_REPORT, 패키지 컬렉션 타입, varchar GIN, dblink 감사 트리거 등).
+- **IvorySQL 진짜 강점을 보려면** Ora2Pg 없이 오라클 원본 DDL/PLSQL을 IvorySQL 오라클 모드에 직접 적재하는
+  별도 경로가 필요(현재 미구현, 다음 단계 후보).
 
 주의(재현 시 핵심):
 
+- **오라클 스키마 재생성 후 `step-07` 재실행 필수**: 테이블 drop/recreate 시 SELECT 권한이 사라져 데이터 export가 빈 파일이 됨.
+  순서: `clean-conversion` → `step-07` → `step-15` → … → `step-23`.
 - Oracle 계정에 `FLASHBACK ANY TABLE` 필요(Ora2Pg가 `AS OF SCN` 사용). `sql/02` 템플릿에 반영됨.
 - 데이터 export는 `PG_DSN=""`로 파일 추출(아니면 PG로 직접 스트리밍됨).
-- FK는 `FKEY_DEFERRABLE 1`+`DEFER_FKEY 1`로 deferrable + 적재 트랜잭션에서 deferred 처리(적재 순서 무관).
-- 깨끗이 다시 적재하려면 `bin/reset-target pg|ivory` 후 step-17~20 재실행.
-- **전체 초기화**(추출물 + 두 타깃 모두)는 `bin/clean-conversion`. Oracle 샘플 데이터를 재생성한 뒤 이걸 돌리고 step-15부터 다시 실행한다.
+- FK는 `FKEY_DEFERRABLE 1`+`DEFER_FKEY 1`(deferred), 트리거는 `DISABLE_TRIGGERS USER`로 적재 중 비활성화
+  (오라클 자율트랜잭션 감사 트리거가 dblink로 변환돼 COPY마다 실패하던 문제 해결). 느린 Oracle 대비 `ORACLE_COPIES 4` 병렬.
+- `SCHEMA_TYPES`(step-15)는 sequence/table/**partition**/function/procedure/package/view/mview/trigger/synonym. PARTITION 빠지면 데이터 COPY 전부 실패.
+- 깨끗이 다시 적재하려면 `bin/reset-target pg|ivory` 후 step-17~20 재실행. **전체 초기화**는 `bin/clean-conversion`.
 
 ## 권장 시작점
 

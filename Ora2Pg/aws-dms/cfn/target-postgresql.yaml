@@ -1,0 +1,50 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: wrtp target - temporary RDS for PostgreSQL (deleted at teardown after download).
+
+Parameters:
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+  RdsSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+  EngineVersion: { Type: String, Default: '16' }
+  InstanceClass: { Type: String, Default: db.t3.medium }
+  AllocatedStorage: { Type: Number, Default: 100 }
+  DbName: { Type: String, Default: appdb }
+  MasterUsername: { Type: String, Default: wrtp_admin }
+  PgSecretName:
+    Type: String
+    Default: wrtp-pg-target
+    Description: Secrets Manager secret holding the master password (key 'password'), set by step 0400.
+
+Resources:
+  DbSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: wrtp pg subnet group
+      SubnetIds: !Ref SubnetIds
+      Tags: [{ Key: Project, Value: wrtp }]
+
+  PgInstance:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Delete
+    Properties:
+      DBInstanceIdentifier: wrtp-pg
+      Engine: postgres
+      EngineVersion: !Ref EngineVersion
+      DBInstanceClass: !Ref InstanceClass
+      AllocatedStorage: !Ref AllocatedStorage
+      StorageType: gp3
+      DBName: !Ref DbName
+      MasterUsername: !Ref MasterUsername
+      MasterUserPassword: !Sub '{{resolve:secretsmanager:${PgSecretName}:SecretString:password}}'
+      DBSubnetGroupName: !Ref DbSubnetGroup
+      VPCSecurityGroups: [!Ref RdsSecurityGroupId]
+      PubliclyAccessible: true
+      MultiAZ: false
+      BackupRetentionPeriod: 0          # temporary DB; artifact is the pg_dump
+      DeletionProtection: false
+      Tags: [{ Key: Project, Value: wrtp }]
+
+Outputs:
+  RdsEndpointAddress: { Value: !GetAtt PgInstance.Endpoint.Address }
+  RdsEndpointPort: { Value: !GetAtt PgInstance.Endpoint.Port }

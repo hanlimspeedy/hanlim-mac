@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Step 0500 — create the temporary RDS for PostgreSQL target, then record its
+# endpoint host into the wrtp-pg-target secret (so SC/DMS can connect).
+set -euo pipefail
+# shellcheck disable=SC1091
+. "$(dirname "$0")/lib.sh"
+
+sub1="$(stack_output network PublicSubnet1Id)"
+sub2="$(stack_output network PublicSubnet2Id)"
+rdssg="$(stack_output network RdsSecurityGroupId)"
+
+deploy_stack target-postgresql "$AWSDMS_DIR/cfn/target-postgresql.yaml" \
+  "SubnetIds=${sub1}\,${sub2}" \
+  "RdsSecurityGroupId=${rdssg}" \
+  "EngineVersion=${RDS_ENGINE_VERSION}" \
+  "InstanceClass=${RDS_INSTANCE_CLASS}" \
+  "AllocatedStorage=${RDS_ALLOCATED_STORAGE}" \
+  "DbName=${RDS_DB_NAME}" \
+  "MasterUsername=${RDS_MASTER_USER}"
+
+host="$(stack_output target-postgresql RdsEndpointAddress)"
+echo "RDS endpoint: $host"
+
+# merge host into the pg-target secret JSON
+cur="$(aws secretsmanager get-secret-value --secret-id wrtp-pg-target --query SecretString --output text)"
+new="$(jq --arg h "$host" '. + {host:$h}' <<<"$cur")"
+aws secretsmanager put-secret-value --secret-id wrtp-pg-target --secret-string "$new" >/dev/null
+echo "OK: wrtp-pg-target secret updated with host. Next: bin/0600_create-schema-conversion-project"

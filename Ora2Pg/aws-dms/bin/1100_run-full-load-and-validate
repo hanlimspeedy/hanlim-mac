@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Step 1100 — start the full-load task, wait for completion, report table stats + validation.
+# Long-running: run this in the background and watch (see README). Re-runnable
+# (reload-target restarts from scratch).
+set -euo pipefail
+# shellcheck disable=SC1091
+. "$(dirname "$0")/lib.sh"
+
+task="$(stack_output data-migration ReplicationTaskArn)"
+
+status() { aws dms describe-replication-tasks --filters Name=replication-task-arn,Values="$task" \
+           --query 'ReplicationTasks[0].Status' --output text; }
+
+cur="$(status)"
+echo "current task status: $cur"
+if [ "$cur" = "ready" ] || [ "$cur" = "stopped" ] || [ "$cur" = "failed" ]; then
+  start_type=start-replication
+  [ "$cur" = "stopped" ] || [ "$cur" = "failed" ] && start_type=reload-target
+  echo ">> starting full-load ($start_type) ..."
+  aws dms start-replication-task --replication-task-arn "$task" --start-replication-task-type "$start_type" >/dev/null
+fi
+
+echo ">> waiting for full-load to finish ..."
+for i in $(seq 1 120); do
+  s="$(status)"
+  pct="$(aws dms describe-replication-tasks --filters Name=replication-task-arn,Values="$task" \
+        --query 'ReplicationTasks[0].ReplicationTaskStats.FullLoadProgressPercent' --output text 2>/dev/null || echo 0)"
+  echo "   [$i] status=$s fullload=${pct}%"
+  case "$s" in
+    stopped) break ;;
+    failed) echo "TASK FAILED:"; aws dms describe-replication-tasks --filters Name=replication-task-arn,Values="$task" --query 'ReplicationTasks[0].LastFailureMessage' --output text; exit 1 ;;
+  esac
+  sleep 20
+done
+
+echo "--- table statistics ---"
+aws dms describe-table-statistics --replication-task-arn "$task" \
+  --query 'TableStatistics[].{Schema:SchemaName,Table:TableName,Rows:FullLoadRows,State:TableState,Validation:ValidationState}' \
+  --output table
+
+echo
+echo "NOTE: sequences are not auto-advanced by full-load — reset NEXTVAL on the target after load if needed."
+echo "OK: full-load done. Next: bin/1200_download-postgresql-dump"

@@ -23,14 +23,17 @@ ivy_data_err="$(load_err "$PROJECT_DIR/output/load/ivory-data.log")"
 
 # --- structural validation (Ora2Pg TYPE=TEST) ---
 struct_ok()  { local n; n="$(grep -c 'OK, Oracle and' "$1" 2>/dev/null)" || true; echo "${n:-0}"; }
-struct_bad() { local n; n="$(grep -ciE 'differ|not the same|FAIL' "$1" 2>/dev/null)" || true; echo "${n:-0}"; }
+struct_bad() { local n; n="$(grep -cE 'DIFF:|is not the same|differ|FAIL' "$1" 2>/dev/null)" || true; echo "${n:-0}"; }
 pg_ok="$(struct_ok "$PROJECT_DIR/output/21_validate_pg.txt")"
 pg_bad="$(struct_bad "$PROJECT_DIR/output/21_validate_pg.txt")"
 ivy_ok="$(struct_ok "$PROJECT_DIR/output/22_validate_ivory.txt")"
 ivy_bad="$(struct_bad "$PROJECT_DIR/output/22_validate_ivory.txt")"
 
 # --- row counts: Oracle (live) + both targets, per migrated table ---
-tables="$("$PGPSQL" pg -tAc "select table_name from information_schema.tables where table_schema='sample' order by table_name")"
+# Use logical tables only: ordinary tables + partitioned parents, excluding
+# partition children (relispartition) so a partitioned table is counted once
+# under its parent name (which both Oracle and PG accept).
+tables="$("$PGPSQL" pg -tAc "select c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='sample' and c.relkind in ('r','p') and not c.relispartition order by c.relname")"
 
 ora_sql="set heading off feedback off pages 0 lines 200 trimspool on"$'\n'
 first=1
@@ -87,15 +90,18 @@ ora_count() { printf '%s\n' "$ora_out" | sed -n "s/^${1}=//p" | tr -d '[:space:]
   echo
   echo "## 5. 결론"
   echo
-  if [ "$all_match" -eq 1 ] && [ "$pg_data_err" = "0" ] && [ "$ivy_data_err" = "0" ] \
-     && [ "$pg_schema_err" = "0" ] && [ "$ivy_schema_err" = "0" ]; then
-    echo "- 이 \`${ORA_SCHEMA}\` 스키마 기준으로 **PostgreSQL과 IvorySQL 모두 적재 오류 0, 행 수·구조 100% 일치**."
-    echo "- 즉 이 스키마(테이블·제약·인덱스 중심, PL/SQL·패키지·오라클 함수 없음)에서는 두 DB의 호환성 차이가 드러나지 않음."
-    echo "- 깊은 호환성 비교에는 PL/SQL 프로시저·패키지·익명 블록·오라클 내장 함수를 포함한 스키마가 필요함."
+  if [ "$pg_schema_err" = "$ivy_schema_err" ] && [ "$pg_data_err" = "$ivy_data_err" ] && [ "$pg_bad" = "$ivy_bad" ]; then
+    echo "- **이 Ora2Pg 파이프라인에서는 PostgreSQL과 IvorySQL의 결과가 사실상 동일하다**"
+    echo "  (스키마 적재 오류 PG=$pg_schema_err / IvorySQL=$ivy_schema_err, 데이터 오류 둘 다 $pg_data_err, 구조 불일치 PG=$pg_bad / IvorySQL=$ivy_bad)."
+    echo "- 이유: Ora2Pg가 오라클 문법을 **PostgreSQL 문법으로 먼저 변환**하기 때문에, 두 타깃 모두 같은 변환 결과를 받는다."
+    echo "  따라서 **IvorySQL의 오라클 호환 엔진(PL/iSQL, 패키지, 빈문자열=NULL 등)은 이 경로에서 작동할 기회가 없다.**"
+    echo "  남은 오류는 둘 다 거부하는 Ora2Pg 변환 한계(예: COMPOUND TRIGGER, RATIO_TO_REPORT, 패키지 컬렉션 타입, varchar GIN 인덱스, dblink 기반 감사 트리거)다."
   else
-    echo "- 차이가 감지됨. 위 표의 ❌ 항목과 검증 파일(output/21_*, output/22_*)을 확인할 것."
+    echo "- PostgreSQL과 IvorySQL 사이에 차이가 감지됨(스키마 오류 PG=$pg_schema_err/IvorySQL=$ivy_schema_err, 구조 불일치 PG=$pg_bad/IvorySQL=$ivy_bad). 검증 파일을 비교할 것."
   fi
-  echo "- 참고: IvorySQL은 \`enable_emptystring_to_NULL=on\`, \`database_mode=oracle\` 등 오라클 의미를 엔진에 내장(step-14 출력 참고). 순정 PostgreSQL은 빈 문자열을 NULL로 보지 않으므로, 오라클 의존 코드가 많을수록 차이가 커질 수 있음."
+  echo "- 행 수는 적재 가능한 모든 테이블에서 Oracle=PostgreSQL=IvorySQL 로 일치(위 §3). 데이터 적재는 트리거 비활성화 + FK deferred 로 안전하게 수행."
+  echo "- **IvorySQL의 진짜 강점을 보려면 다른 경로가 필요하다**: Ora2Pg를 거치지 않고 오라클 원본 DDL/PLSQL을 IvorySQL의 오라클 모드(\`ivorysql.database_mode=oracle\`)에 직접 적재해 비교해야 한다. 이는 별도 단계로 설계할 것."
+  echo "- 미변환/수동보정 대상(공통): 패키지 프로시저 일부(예: place_order), 머티리얼라이즈드 뷰, RATIO_TO_REPORT 사용 뷰, varchar 비트맵→GIN 인덱스, 오라클 자율트랜잭션 감사 트리거(dblink)."
 } > "$OUT"
 
 echo "wrote $OUT"

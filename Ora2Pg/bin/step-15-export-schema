@@ -5,10 +5,13 @@ PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # shellcheck disable=SC1091
 . "$PROJECT_DIR/bin/env.sh"
 
-# Object types to export, in load order. SAMPLE only has tables (constraints +
-# indexes are bundled into the TABLE export). Extend for richer schemas, e.g.
-#   SCHEMA_TYPES="TYPE SEQUENCE TABLE VIEW FUNCTION PROCEDURE PACKAGE TRIGGER"
-SCHEMA_TYPES="${SCHEMA_TYPES:-TABLE}"
+# Object types to export, in load order. The SAMPLE schema includes PL/SQL,
+# views, materialized views, sequences, triggers and synonyms, so export them
+# all. A type with zero objects just yields an empty file (harmless). The order
+# targets dependencies (sequences -> tables -> code -> views/mviews -> triggers
+# -> synonyms); residual cross-deps surface as logged errors, not fatal aborts
+# (STOP_ON_ERROR 0), which is what the compatibility comparison measures.
+SCHEMA_TYPES="${SCHEMA_TYPES:-SEQUENCE TABLE PARTITION FUNCTION PROCEDURE PACKAGE VIEW MVIEW TRIGGER SYNONYM}"
 
 OUT_DIR="$PROJECT_DIR/output/export/schema"
 rm -rf "$OUT_DIR"

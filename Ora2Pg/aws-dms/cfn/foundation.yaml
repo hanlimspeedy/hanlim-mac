@@ -1,0 +1,123 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  wrtp foundation - S3 bucket (SSE-S3) for Schema Conversion, Secrets Manager shells
+  for source/target credentials, and IAM roles for DMS Schema Conversion + assessment.
+
+Parameters:
+  S3BucketName:
+    Type: String
+    Description: Globally-unique bucket name, e.g. wrtp-sc-<account>-<region>.
+
+Resources:
+  ScBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Ref S3BucketName
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 }   # SSE-S3 (only mode DMS SC supports)
+      VersioningConfiguration: { Status: Enabled }
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags: [{ Key: Project, Value: wrtp }]
+
+  # Credential shells. Real values injected by step 0400 (oracle) / 0500 (pg host). No real secrets here.
+  OracleScSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: wrtp-oracle-sc
+      Description: Oracle C##DMS_SC (Schema Conversion source) credentials
+      SecretString: '{"placeholder":"set-by-step-0400"}'
+      Tags: [{ Key: Project, Value: wrtp }]
+  OracleDmsSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: wrtp-oracle-dms
+      Description: Oracle C##DMS (data migration source) credentials
+      SecretString: '{"placeholder":"set-by-step-0400"}'
+      Tags: [{ Key: Project, Value: wrtp }]
+  PgTargetSecret:
+    Type: AWS::SecretsManager::Secret
+    Properties:
+      Name: wrtp-pg-target
+      Description: RDS PostgreSQL target credentials (host added by step 0500)
+      SecretString: '{"placeholder":"set-by-step-0400"}'
+      Tags: [{ Key: Project, Value: wrtp }]
+
+  ScS3Role:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: wrtp-sc-s3-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: !Sub 'dms.${AWS::Region}.amazonaws.com' }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: s3-access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [s3:ListBucket, s3:GetBucketLocation, s3:GetBucketVersioning]
+                Resource: !Sub 'arn:aws:s3:::${S3BucketName}'
+              - Effect: Allow
+                Action: [s3:PutObject, s3:GetObject, s3:GetObjectVersion, s3:DeleteObject]
+                Resource: !Sub 'arn:aws:s3:::${S3BucketName}/*'
+      Tags: [{ Key: Project, Value: wrtp }]
+
+  ScSecretsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: wrtp-sc-secrets-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: !Sub 'dms.${AWS::Region}.amazonaws.com' }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: secrets-access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [secretsmanager:GetSecretValue, secretsmanager:DescribeSecret]
+                Resource: [!Ref OracleScSecret, !Ref OracleDmsSecret, !Ref PgTargetSecret]
+      Tags: [{ Key: Project, Value: wrtp }]
+
+  DmsAssessmentRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: wrtp-dms-assessment-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal: { Service: dms.amazonaws.com }
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: s3-assessment
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: [s3:ListBucket, s3:GetBucketLocation]
+                Resource: !Sub 'arn:aws:s3:::${S3BucketName}'
+              - Effect: Allow
+                Action: [s3:PutObject, s3:GetObject, s3:DeleteObject]
+                Resource: !Sub 'arn:aws:s3:::${S3BucketName}/*'
+      Tags: [{ Key: Project, Value: wrtp }]
+
+Outputs:
+  S3BucketName: { Value: !Ref ScBucket }
+  OracleScSecretArn: { Value: !Ref OracleScSecret }
+  OracleDmsSecretArn: { Value: !Ref OracleDmsSecret }
+  PgTargetSecretArn: { Value: !Ref PgTargetSecret }
+  ScS3RoleArn: { Value: !GetAtt ScS3Role.Arn }
+  ScSecretsRoleArn: { Value: !GetAtt ScSecretsRole.Arn }
+  DmsAssessmentRoleArn: { Value: !GetAtt DmsAssessmentRole.Arn }

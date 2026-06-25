@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Step 9000 — read-only inventory of everything this project created.
+set -euo pipefail
+# shellcheck disable=SC1091
+. "$(dirname "$0")/lib.sh"
+
+echo "=== Resources tagged ${TAG_KEY}=${TAG_VALUE} (account-wide, via Tagging API) ==="
+aws resourcegroupstaggingapi get-resources --tag-filters "Key=${TAG_KEY},Values=${TAG_VALUE}" \
+  --query 'ResourceTagMappingList[].ResourceARN' --output table || true
+
+echo
+echo "=== wrtp CloudFormation stacks ==="
+for s in shared-dms-roles network foundation target-postgresql schema-conversion data-migration; do
+  name="$(stack_name "$s")"
+  if stack_exists "$s"; then
+    st="$(aws cloudformation describe-stacks --stack-name "$name" --query 'Stacks[0].StackStatus' --output text)"
+    echo "- $name : $st"
+    aws cloudformation list-stack-resources --stack-name "$name" \
+      --query 'StackResourceSummaries[].{Type:ResourceType,Logical:LogicalResourceId,Physical:PhysicalResourceId}' \
+      --output table
+  else
+    echo "- $name : (not present)"
+  fi
+done

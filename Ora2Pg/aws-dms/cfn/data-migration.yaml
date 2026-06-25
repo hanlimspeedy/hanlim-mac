@@ -1,0 +1,86 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  wrtp data migration - DMS replication instance, Oracle source + PostgreSQL target
+  endpoints (Secrets Manager auth), and a full-load replication task.
+
+Parameters:
+  SubnetIds: { Type: List<AWS::EC2::Subnet::Id> }
+  DmsSecurityGroupId: { Type: AWS::EC2::SecurityGroup::Id }
+  ReplicationInstanceClass: { Type: String, Default: dms.t3.medium }
+  OracleService: { Type: String, Default: ORCLPDB1 }
+  OracleDmsSecretArn: { Type: String }
+  PgDbName: { Type: String, Default: appdb }
+  PgTargetSecretArn: { Type: String }
+  SecretsAccessRoleArn:
+    Type: String
+    Description: Role DMS endpoints assume to read the secrets (reuse wrtp-sc-secrets-role).
+  OracleSchema: { Type: String, Default: SAMPLE }
+
+Resources:
+  DmsSubnetGroup:
+    Type: AWS::DMS::ReplicationSubnetGroup
+    Properties:
+      ReplicationSubnetGroupIdentifier: wrtp-dms-subnet
+      ReplicationSubnetGroupDescription: wrtp data migration subnet group
+      SubnetIds: !Ref SubnetIds
+      Tags: [{ Key: Project, Value: wrtp }]
+
+  ReplicationInstance:
+    Type: AWS::DMS::ReplicationInstance
+    Properties:
+      ReplicationInstanceIdentifier: wrtp-dms-ri
+      ReplicationInstanceClass: !Ref ReplicationInstanceClass
+      AllocatedStorage: 50
+      PubliclyAccessible: true
+      MultiAZ: false
+      ReplicationSubnetGroupIdentifier: !Ref DmsSubnetGroup
+      VpcSecurityGroupIds: [!Ref DmsSecurityGroupId]
+      Tags: [{ Key: Project, Value: wrtp }]
+
+  SourceEndpoint:
+    Type: AWS::DMS::Endpoint
+    Properties:
+      EndpointIdentifier: wrtp-oracle-source
+      EndpointType: source
+      EngineName: oracle
+      DatabaseName: !Ref OracleService
+      OracleSettings:
+        SecretsManagerSecretId: !Ref OracleDmsSecretArn
+        SecretsManagerAccessRoleArn: !Ref SecretsAccessRoleArn
+      Tags: [{ Key: Project, Value: wrtp }]
+
+  TargetEndpoint:
+    Type: AWS::DMS::Endpoint
+    Properties:
+      EndpointIdentifier: wrtp-pg-target
+      EndpointType: target
+      EngineName: postgres
+      DatabaseName: !Ref PgDbName
+      PostgreSqlSettings:
+        SecretsManagerSecretId: !Ref PgTargetSecretArn
+        SecretsManagerAccessRoleArn: !Ref SecretsAccessRoleArn
+        AfterConnectScript: SET session_replication_role=replica   # bypass FK/triggers during load
+      Tags: [{ Key: Project, Value: wrtp }]
+
+  FullLoadTask:
+    Type: AWS::DMS::ReplicationTask
+    Properties:
+      ReplicationTaskIdentifier: wrtp-fulltask
+      MigrationType: full-load
+      ReplicationInstanceArn: !Ref ReplicationInstance
+      SourceEndpointArn: !Ref SourceEndpoint
+      TargetEndpointArn: !Ref TargetEndpoint
+      TableMappings: !Sub |
+        {"rules":[{"rule-type":"selection","rule-id":"1","rule-name":"include-schema",
+        "object-locator":{"schema-name":"${OracleSchema}","table-name":"%"},"rule-action":"include"}]}
+      ReplicationTaskSettings: |
+        {"TargetMetadata":{"TargetTablePrepMode":"DO_NOTHING"},
+         "ValidationSettings":{"EnableValidation":true},
+         "Logging":{"EnableLogging":true}}
+      Tags: [{ Key: Project, Value: wrtp }]
+
+Outputs:
+  ReplicationInstanceArn: { Value: !Ref ReplicationInstance }
+  SourceEndpointArn: { Value: !Ref SourceEndpoint }
+  TargetEndpointArn: { Value: !Ref TargetEndpoint }
+  ReplicationTaskArn: { Value: !Ref FullLoadTask }

@@ -21,6 +21,16 @@ The same Ora2Pg export is loaded into two targets and compared. See
 [MIGRATION_TEST.md](MIGRATION_TEST.md) for the full, reproducible procedure
 (steps 10–23) and the rationale behind every configuration choice.
 
+## AWS DMS path (alternative)
+
+`aws-dms/` holds the AWS DMS / Schema Conversion access guide for reaching this
+on-prem Oracle from AWS — connection endpoints, the `C##DMS` / `C##DMS_SC`
+accounts, and CDC prerequisites. Moved here from the `oracle-db` repo on 248.
+
+- [aws-dms/AWS_DMS_SETUP.md](aws-dms/AWS_DMS_SETUP.md) — endpoints, accounts, CDC notes
+- [aws-dms/01_create_dms_users.sql](aws-dms/01_create_dms_users.sql) — DMS account DDL (passwords passed at runtime, not stored)
+- [aws-dms/02_enable_cdc.sql](aws-dms/02_enable_cdc.sql) — ARCHIVELOG + supplemental logging (restart required; CDC only)
+
 ## Project files
 
 - `bin/env.sh`: loads local Oracle/Perl environment

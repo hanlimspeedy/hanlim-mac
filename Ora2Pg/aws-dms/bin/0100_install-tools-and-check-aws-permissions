@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# Step 0100 — install the AWS CLI (automated) and gate on AWS credentials + IAM permissions.
+# This is the START: nothing else runs until `aws sts get-caller-identity` works and the
+# read-permission preflight passes. Re-run after you attach the policy / configure creds.
+set -euo pipefail
+# shellcheck disable=SC1091
+. "$(dirname "$0")/lib.sh"
+
+POLICY="$AWSDMS_DIR/iam/wrtp-migration-policy.json"
+
+# 1) Install AWS CLI v2 if missing (idempotent).
+if command -v aws >/dev/null 2>&1; then
+  echo "aws cli present: $(aws --version 2>&1)"
+else
+  echo "installing AWS CLI v2 ..."
+  command -v unzip >/dev/null 2>&1 || sudo apt-get install -y unzip
+  tmp="$(mktemp -d)"
+  curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "$tmp/awscliv2.zip"
+  unzip -q "$tmp/awscliv2.zip" -d "$tmp"
+  sudo "$tmp/aws/install" --update
+  rm -rf "$tmp"
+  echo "installed: $(aws --version 2>&1)"
+fi
+
+# 2) Show the required IAM permissions.
+echo
+echo "=== Required AWS permissions ==="
+echo "Attach this policy to the IAM user/role whose credentials this server uses:"
+echo "  $POLICY"
+echo "Scope: cloudformation, ec2/VPC, rds, dms, s3(wrtp-*), secretsmanager(wrtp-*),"
+echo "       iam(wrtp-* + dms-vpc-role/dms-cloudwatch-logs-role), logs, tag:GetResources."
+
+# 3) Credentials gate.
+echo
+echo "=== Credential check (region: $AWS_DEFAULT_REGION${AWS_PROFILE:+, profile: $AWS_PROFILE}) ==="
+if ! ident="$(aws sts get-caller-identity --output text 2>/dev/null)"; then
+  cat <<EOF
+
+NO working AWS credentials. Do this, then re-run step 0100:
+  1) Create an IAM user (or role) and attach: $POLICY
+  2) Configure credentials on THIS server:
+        aws configure                  # enter Access Key / Secret / region ($AWS_DEFAULT_REGION)
+     (or set AWS_PROFILE=<name> in $CONFIG if you use a named profile/SSO)
+  3) Re-run: bin/0100_install-tools-and-check-aws-permissions
+EOF
+  exit 1
+fi
+echo "caller: $ident"
+
+# 4) Read-only permission preflight (best-effort; create perms still come from the policy).
+echo
+echo "=== Permission preflight (read-only) ==="
+preflight_fail=0
+check() { local label="$1"; shift
+  if "$@" >/dev/null 2>&1; then echo "  OK    $label"; else echo "  FAIL  $label"; preflight_fail=1; fi; }
+check "cloudformation" aws cloudformation list-stacks
+check "ec2 / vpc"      aws ec2 describe-vpcs --max-items 1
+check "rds"            aws rds describe-db-instances
+check "dms"            aws dms describe-replication-instances
+check "s3"             aws s3api list-buckets
+check "secretsmanager" aws secretsmanager list-secrets --max-results 1
+check "iam"            aws iam list-roles --max-items 1
+check "tagging"        aws resourcegroupstaggingapi get-resources --resources-per-page 1
+
+echo
+if [ "$preflight_fail" -ne 0 ]; then
+  echo "Some read checks FAILED — attach $POLICY (or fix the profile), then re-run 0100." >&2
+  exit 1
+fi
+echo "OK: AWS CLI ready, credentials valid, read permissions present."
+echo "Next: review $CONFIG (Oracle public IP, ONPREM_CIDR), then run bin/0150_ensure-shared-dms-service-roles"

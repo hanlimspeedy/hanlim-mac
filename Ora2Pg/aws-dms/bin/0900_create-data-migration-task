@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Step 0900 — create the DMS replication instance, endpoints and full-load task.
+set -euo pipefail
+# shellcheck disable=SC1091
+. "$(dirname "$0")/lib.sh"
+
+sub1="$(stack_output network PublicSubnet1Id)"
+sub2="$(stack_output network PublicSubnet2Id)"
+dmssg="$(stack_output network DmsSecurityGroupId)"
+oradms="$(stack_output foundation OracleDmsSecretArn)"
+pgsec="$(stack_output foundation PgTargetSecretArn)"
+secrole="$(stack_output foundation ScSecretsRoleArn)"   # reused for endpoint secret access
+
+deploy_stack data-migration "$AWSDMS_DIR/cfn/data-migration.yaml" \
+  "SubnetIds=${sub1}\,${sub2}" \
+  "DmsSecurityGroupId=${dmssg}" \
+  "OracleService=${ORACLE_SERVICE}" \
+  "OracleDmsSecretArn=${oradms}" \
+  "PgDbName=${RDS_DB_NAME}" \
+  "PgTargetSecretArn=${pgsec}" \
+  "SecretsAccessRoleArn=${secrole}" \
+  "OracleSchema=${ORACLE_SCHEMA}"
+
+echo "--- outputs ---"
+aws cloudformation describe-stacks --stack-name "$(stack_name data-migration)" \
+  --query 'Stacks[0].Outputs' --output table

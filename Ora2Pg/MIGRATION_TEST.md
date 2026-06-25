@@ -50,7 +50,11 @@ IVY_IMAGE=ivorysql/ivorysql:3.4-ubi8   IVY_CONTAINER=ora2pg-ivory
 | 두 타깃 모두 **UTF8 + C collation** 로 통일 | 한글(멀티바이트) 안전 + Ora2Pg 데이터 검증이 Oracle 이진 정렬과 맞으려면 C가 유리. 컨테이너 기본은 SQL_ASCII/C 라 반드시 재지정. (`sql/10`,`sql/11` 템플릿) |
 | Ora2Pg `STOP_ON_ERROR 0` | 적재 시 첫 오류에서 멈추지 않고 끝까지 가서 **모든 오류를 수집** → 호환성 측정 정확. |
 | Ora2Pg `FKEY_DEFERRABLE 1` + `DEFER_FKEY 1` | 데이터 export가 테이블 알파벳순이라 `order_items`가 참조 대상 `products`보다 먼저 온다. FK를 deferrable로 만들고 데이터 적재 트랜잭션에서 `SET CONSTRAINTS ALL DEFERRED` → COMMIT 시점에 검사하므로 적재 순서 무관. 슈퍼유저 불필요. |
+| Ora2Pg `DISABLE_TRIGGERS USER` | 스키마에 오라클 자율트랜잭션 감사 트리거(Ora2Pg가 dblink 기반으로 변환)가 있으면 데이터 COPY마다 트리거가 발화→dblink 없어 실패→트랜잭션 전체 롤백. 데이터 적재 동안 `ALTER TABLE ... DISABLE TRIGGER USER`(소유자 권한, 슈퍼유저 불필요)로 끈다. 대량 적재 표준 관행. |
+| Ora2Pg `ORACLE_COPIES 4` | 원격 Oracle(`248`)이 느려 LOB 포함 데이터 export가 라운드트립에 묶여 느리다(직렬 ~30 recs/s). 병렬 읽기 연결로 라운드트립을 겹쳐 수배 빨라짐. |
 | Oracle 계정에 `FLASHBACK ANY TABLE` 부여 (`sql/02`) | Ora2Pg 데이터 export가 일관 스냅샷을 위해 `SELECT ... AS OF SCN` 사용 → flashback 권한 필요(없으면 ORA-01031). |
+| **스키마 재생성 후 `step-07` 재실행 필수** | 오라클에서 테이블을 drop/recreate 하면 `ORA2PG_MIG`의 SELECT 권한이 사라진다. step-07(=`grant select on dba_tables for SAMPLE`)을 다시 돌려야 데이터 export가 된다. (스키마 DDL export는 dictionary로 되지만 데이터 export는 직접 SELECT 권한 필요.) |
+| `SCHEMA_TYPES` (step-15) 에 PL/SQL·PARTITION 포함 | 풍부한 스키마는 sequence/table/**partition**/function/procedure/package/view/mview/trigger/synonym 를 모두 export 해야 한다. 특히 PARTITION 을 빼면 파티션 자식 테이블(p2018…pmax)이 안 생겨 데이터 COPY가 전부 실패한다. 0개인 타입은 빈 파일이라 무해. |
 | 두 타깃에 `sample` 역할 생성 | Ora2Pg가 스키마 소유자를 원본 Oracle 소유자(`sample`)로 지정. 같은 export를 두 타깃에 그대로 넣으려면 양쪽에 역할이 있어야 함. PG는 app 유저를 이 역할 멤버로. |
 | 데이터 export 시 `PG_DSN=""` | Ora2Pg는 `TYPE=COPY`에 PG_DSN이 있으면 PG로 **직접 스트리밍**한다. 파일로 뽑으려면 PG_DSN을 비워야 함(`bin/ora2pg-run`은 빈 값을 그대로 둔다). |
 
@@ -65,23 +69,28 @@ IVY_IMAGE=ivorysql/ivorysql:3.4-ubi8   IVY_CONTAINER=ora2pg-ivory
 | 12 | `bin/step-12-start-ivorysql` | IvorySQL 컨테이너 기동(없으면 pull/run) | `OK: IvorySQL container ... reachable on port 5433` |
 | 13 | `bin/step-13-create-ivory-target` | DB `sample_ivory`(UTF8/C) + `sample` 역할 | `OK: database sample_ivory ready` |
 | 14 | `bin/step-14-check-targets` | 두 타깃 버전/인코딩 + IvorySQL 오라클 호환 설정 | 둘 다 `encoding=UTF8 collate=C`, `OK: both targets reachable` |
-| 15 | `bin/step-15-export-schema` | Oracle 스키마 DDL → `output/export/schema/` | `01_table.sql` 생성, FK에 `DEFERRABLE` 포함 |
-| 16 | `bin/step-16-export-data` | Oracle 데이터 → `output/export/data/01_data.sql` | `^COPY` 다수, 4행에 `SET CONSTRAINTS ALL DEFERRED` |
-| 17 | `bin/step-17-load-schema-pg` | 스키마 → PostgreSQL | `RESULT: PASS (0 errors)` |
+| (07) | `bin/step-07-create-ora2pg-user` | **오라클 스키마를 재생성했다면 먼저** SELECT/FLASHBACK 권한 재부여 | `Grant succeeded` 반복 |
+| 15 | `bin/step-15-export-schema` | Oracle 스키마 DDL → `output/export/schema/` (sequence/table/partition/function/procedure/package/view/mview/trigger/synonym) | `0N_*.sql` 생성, FK에 `DEFERRABLE`, `03_partition.sql`에 `PARTITION OF` |
+| 16 | `bin/step-16-export-data` | Oracle 데이터 → `output/export/data/01_data.sql` | `^COPY` 다수, `SET CONSTRAINTS ALL DEFERRED` + `DISABLE TRIGGER USER` 포함 |
+| 17 | `bin/step-17-load-schema-pg` | 스키마 → PostgreSQL | 적재 완료(풍부한 스키마는 Ora2Pg 변환 한계로 일부 ERROR 발생 — 측정 대상. 양 타깃 동일해야 함) |
 | 18 | `bin/step-18-load-data-pg` | 데이터 → PostgreSQL | `RESULT: PASS (0 errors)` |
-| 19 | `bin/step-19-load-schema-ivory` | 스키마 → IvorySQL | `RESULT: PASS (0 errors)` |
+| 19 | `bin/step-19-load-schema-ivory` | 스키마 → IvorySQL | step-17과 동일한 오류 수 |
 | 20 | `bin/step-20-load-data-ivory` | 데이터 → IvorySQL | `RESULT: PASS (0 errors)` |
-| 21 | `bin/step-21-validate-pg` | Ora2Pg TYPE=TEST: Oracle vs PG | 전 항목 `OK, Oracle and PostgreSQL have the same number` |
-| 22 | `bin/step-22-validate-ivory` | Ora2Pg TYPE=TEST: Oracle vs IvorySQL | 동일 |
+| 21 | `bin/step-21-validate-pg` | Ora2Pg TYPE=TEST: Oracle vs PG | `OK,...` 다수 + 변환 안 된 객체는 `DIFF:` 로 표기 |
+| 22 | `bin/step-22-validate-ivory` | Ora2Pg TYPE=TEST: Oracle vs IvorySQL | step-21과 동일 결과 |
 | 23 | `bin/step-23-compatibility-report` | 종합 리포트 생성 | `output/COMPATIBILITY_REPORT.md` 작성 |
 
 > 참고: step-15/16/21/22는 느린 Oracle(`192.168.29.248`)에 붙어 수십 초~분이 걸릴 수 있다. 정상이다.
+> 데이터 export(step-16)는 LOB 때문에 특히 느려 `ORACLE_COPIES 4` 병렬로 단축한다.
+> **풍부한 스키마에서는 step-17/19에 ERROR가 나는 것이 정상이다**(Ora2Pg가 변환하지 못한 오라클 구문). 핵심은 PG와 IvorySQL의 오류·DIFF 수가 같은지다.
 
 ## 4. 재실행 / 초기화
 
 - **전체 초기화(추출물 + 두 타깃 모두)**: `bin/clean-conversion`
   - `output/`의 모든 생성물(추출 파일·적재 로그·검증·리포트)을 지우고, `sample_pg`·`sample_ivory`를
-    DROP 후 빈 상태로 재생성한다. **Oracle 샘플 데이터를 다시 만든 뒤** 이걸 돌리고 step-15부터 재실행하면 된다.
+    DROP 후 빈 상태로 재생성한다.
+  - **Oracle 샘플 스키마를 다시 만든 뒤** 순서: `bin/clean-conversion` → `bin/step-07-create-ora2pg-user`(권한 재부여) → `step-15` → … → `step-23`.
+    step-07을 건너뛰면 테이블 재생성으로 SELECT 권한이 사라져 데이터 export(step-16)가 빈 파일이 된다.
   - 전제: PostgreSQL(step-10)과 IvorySQL 컨테이너(step-12)가 떠 있어야 한다.
 - **한쪽 타깃만 비우고 다시 적재**하려면: `bin/reset-target pg` 또는 `bin/reset-target ivory`
   (해당 DB를 DROP 후 create step 재실행). 그 다음 step-17~20을 다시 돌린다.
@@ -95,21 +104,26 @@ IVY_IMAGE=ivorysql/ivorysql:3.4-ubi8   IVY_CONTAINER=ora2pg-ivory
 - 상세 적재 로그: `output/load/{pg,ivory}-{schema,data}.log` (파일별 오류 나열).
 - 상세 구조검증: `output/21_validate_pg.txt`, `output/22_validate_ivory.txt`.
 
-## 6. 현재까지의 결과 요약
+## 6. 결과 요약 (풍부한 SAMPLE 스키마)
 
-`SAMPLE` 스키마(테이블 6, 인덱스, check/FK 제약, **PL/SQL·패키지·시퀀스·뷰 없음**) 기준:
+대상 스키마: 테이블 11(파티션 포함), 시퀀스 6, 함수 2, 프로시저 3, 패키지 3, 트리거 6, 뷰 7,
+머티리얼라이즈드 뷰 2, 시노님 1, **identity/생성컬럼/LOB/RANGE 파티셔닝** 포함.
 
-- PostgreSQL, IvorySQL **둘 다 적재 오류 0**, 행 수 100% 일치(customers 15000 / departments 30 / employees 800 /
-  orders 35000 / order_items 100000 / products 3000), 구조검증 19개 항목 모두 OK.
-- 즉 **이 스키마에서는 두 DB의 호환성 차이가 드러나지 않는다.**
-- 단, IvorySQL은 `enable_emptystring_to_NULL=on`, `database_mode=oracle` 등 **오라클 의미를 엔진에 내장**(step-14 출력).
-  순정 PostgreSQL은 빈 문자열을 NULL로 취급하지 않는다. 따라서 **오라클 PL/SQL·내장 함수·빈문자열 의존 코드가 많을수록
-  IvorySQL이 유리**해질 가능성이 크다.
+- **데이터**: 두 타깃 모두 적재 오류 0, 행 수 100% 일치
+  (customers 15000 / departments 30 / employees 810 / products 3001 / order_items 100600 /
+  orders 35300 / audit_log 314 / region_dim 6 / tax_rates 6 / employee_targets 154 / order_status_dim 7).
+- **스키마(DDL/PLSQL)**: PG·IvorySQL **둘 다 9개 적재 오류, 23개 구조 DIFF — 완전히 동일**.
+- **핵심 결론**: 이 Ora2Pg 경로에서는 **PostgreSQL ≈ IvorySQL**. Ora2Pg가 오라클 문법을 PostgreSQL 문법으로
+  **먼저 변환**하므로 두 타깃이 같은 결과물을 받고, IvorySQL의 오라클 호환 엔진은 작동할 기회가 없다.
+  남은 오류는 둘 다 거부하는 Ora2Pg 변환 한계다: COMPOUND TRIGGER, `RATIO_TO_REPORT`, 패키지 컬렉션 타입,
+  varchar 비트맵→GIN 인덱스, dblink 기반 자율트랜잭션 감사 트리거, 일부 패키지 프로시저(place_order), MVIEW.
 
 ## 7. 한계와 다음 단계
 
-- 깊은 호환성 차이(PL/SQL 자동변환, 패키지, 익명 블록, `NVL/DECODE/SYSDATE` 등 오라클 함수, 빈문자열 의미)는
-  **PL/SQL을 포함한 스키마**로 다시 테스트해야 드러난다. 이 하니스는 그대로 재사용 가능하다
-  (`SCHEMA_TYPES` 환경변수로 `step-15`에 FUNCTION/PROCEDURE/PACKAGE/TRIGGER/VIEW 등을 추가).
+- **IvorySQL의 진짜 강점은 이 경로로는 측정되지 않는다.** 확인하려면 Ora2Pg를 거치지 않고
+  **오라클 원본 DDL/PLSQL을 IvorySQL 오라클 모드(`ivorysql.database_mode=oracle`)에 직접 적재**하는
+  별도 경로를 설계해 비교해야 한다(현재 하니스 미구현).
 - 순정 PostgreSQL 경로를 더 공정하게 보려면 `orafce` 확장을 PG에 설치해 비교할 수 있다(IvorySQL은 내장).
+- 공통 수동 보정 대상: 패키지 프로시저 일부, 머티리얼라이즈드 뷰, 오라클 분석함수(RATIO_TO_REPORT) 뷰,
+  varchar GIN 인덱스, 자율트랜잭션 감사 트리거(dblink 설치 또는 재설계).
 - 저다운타임 컷오버는 Ora2Pg(오프라인) 범위 밖이며 별도 CDC 도구(Debezium/SymmetricDS) 설계가 필요하다.

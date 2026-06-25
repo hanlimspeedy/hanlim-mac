@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# Step 0700 — run the DMS Schema Conversion metadata assessment and pull the report.
+# DMS Schema Conversion CLI ops are asynchronous; this starts the assessment, waits
+# best-effort, exports the report to the project S3 bucket, and syncs it locally.
+# (If the async op is still running, re-run this step — it is idempotent.)
+set -euo pipefail
+# shellcheck disable=SC1091
+. "$(dirname "$0")/lib.sh"
+
+PROJ="wrtp-migration-project"
+RULES="$(jq -n --arg s "$ORACLE_SCHEMA" \
+  '{rules:[{"rule-type":"selection","rule-id":"1","rule-name":"sel","object-locator":{"schema-name":$s},"rule-action":"include"}]}')"
+bucket="$(stack_output foundation S3BucketName)"
+
+echo ">> starting metadata model assessment for schema $ORACLE_SCHEMA ..."
+aws dms start-metadata-model-assessment --migration-project-identifier "$PROJ" --selection-rules "$RULES" || true
+
+echo ">> waiting for assessment (best-effort, up to ~10m) ..."
+for i in $(seq 1 40); do
+  st="$(aws dms describe-metadata-model-assessments --migration-project-identifier "$PROJ" \
+        --query 'Marker' --output text 2>/dev/null || true)"
+  # describe returns the current assessment set; we just give it time to populate
+  sleep 15
+  done_flag="$(aws dms describe-metadata-model-assessments --migration-project-identifier "$PROJ" 2>/dev/null | jq -r '.. | .Status? // empty' | head -1 || true)"
+  echo "   poll $i: ${done_flag:-pending}"
+  [ "${done_flag:-}" = "completed" ] && break
+done
+
+echo ">> exporting assessment report (pdf+csv) to S3 ..."
+aws dms export-metadata-model-assessment --migration-project-identifier "$PROJ" \
+  --selection-rules "$RULES" --file-name "wrtp-assessment" \
+  --assessment-report-types pdf csv || \
+  echo "   (export not ready yet — re-run 0700 once the assessment completes)"
+
+echo ">> syncing S3 bucket -> output/s3 ..."
+mkdir -p "$OUTPUT_DIR/s3"
+aws s3 sync "s3://${bucket}" "$OUTPUT_DIR/s3" || true
+echo "OK: see $OUTPUT_DIR/s3 for the assessment report. Next: bin/0800_convert-and-apply-schema-to-target"

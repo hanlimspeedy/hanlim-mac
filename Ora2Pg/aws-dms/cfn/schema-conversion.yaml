@@ -1,0 +1,89 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  wrtp DMS Schema Conversion - instance profile, Oracle/PostgreSQL data providers,
+  and migration project (S3 + Secrets Manager wired).
+
+Parameters:
+  SubnetIds: { Type: List<AWS::EC2::Subnet::Id> }
+  DmsSecurityGroupId: { Type: AWS::EC2::SecurityGroup::Id }
+  OracleServerName: { Type: String }
+  OraclePort: { Type: Number, Default: 1521 }
+  OracleService: { Type: String, Default: ORCLPDB1 }
+  PgServerName: { Type: String }
+  PgPort: { Type: Number, Default: 5432 }
+  PgDbName: { Type: String, Default: appdb }
+  S3BucketName: { Type: String }
+  ScS3RoleArn: { Type: String }
+  ScSecretsRoleArn: { Type: String }
+  OracleScSecretArn: { Type: String }
+  PgTargetSecretArn: { Type: String }
+
+Resources:
+  ScSubnetGroup:
+    Type: AWS::DMS::ReplicationSubnetGroup
+    Properties:
+      ReplicationSubnetGroupIdentifier: wrtp-sc-subnet
+      ReplicationSubnetGroupDescription: wrtp schema conversion subnet group
+      SubnetIds: !Ref SubnetIds
+      Tags: [{ Key: Project, Value: wrtp }]
+
+  InstanceProfile:
+    Type: AWS::DMS::InstanceProfile
+    Properties:
+      InstanceProfileName: wrtp-instance-profile
+      Description: wrtp schema conversion instance profile
+      NetworkType: IPV4
+      PubliclyAccessible: true
+      SubnetGroupIdentifier: !Ref ScSubnetGroup
+      VpcSecurityGroups: [!Ref DmsSecurityGroupId]
+      Tags: [{ Key: Project, Value: wrtp }]
+
+  OracleDataProvider:
+    Type: AWS::DMS::DataProvider
+    Properties:
+      DataProviderName: wrtp-oracle-src
+      Engine: oracle
+      Settings:
+        OracleSettings:
+          ServerName: !Ref OracleServerName
+          Port: !Ref OraclePort
+          DatabaseName: !Ref OracleService
+          SslMode: none
+      Tags: [{ Key: Project, Value: wrtp }]
+
+  PgDataProvider:
+    Type: AWS::DMS::DataProvider
+    Properties:
+      DataProviderName: wrtp-pg-target
+      Engine: postgres
+      Settings:
+        PostgreSqlSettings:
+          ServerName: !Ref PgServerName
+          Port: !Ref PgPort
+          DatabaseName: !Ref PgDbName
+          SslMode: require
+      Tags: [{ Key: Project, Value: wrtp }]
+
+  MigrationProject:
+    Type: AWS::DMS::MigrationProject
+    Properties:
+      MigrationProjectName: wrtp-migration-project
+      Description: wrtp Oracle to PostgreSQL schema conversion
+      InstanceProfileIdentifier: !GetAtt InstanceProfile.InstanceProfileArn
+      SourceDataProviderDescriptors:
+        - DataProviderArn: !GetAtt OracleDataProvider.DataProviderArn
+          SecretsManagerSecretId: !Ref OracleScSecretArn
+          SecretsManagerAccessRoleArn: !Ref ScSecretsRoleArn
+      TargetDataProviderDescriptors:
+        - DataProviderArn: !GetAtt PgDataProvider.DataProviderArn
+          SecretsManagerSecretId: !Ref PgTargetSecretArn
+          SecretsManagerAccessRoleArn: !Ref ScSecretsRoleArn
+      SchemaConversionApplicationAttributes:
+        S3BucketPath: !Sub 's3://${S3BucketName}'
+        S3BucketRoleArn: !Ref ScS3RoleArn
+      Tags: [{ Key: Project, Value: wrtp }]
+
+Outputs:
+  MigrationProjectArn: { Value: !GetAtt MigrationProject.MigrationProjectArn }
+  MigrationProjectName: { Value: wrtp-migration-project }
+  InstanceProfileArn: { Value: !GetAtt InstanceProfile.InstanceProfileArn }

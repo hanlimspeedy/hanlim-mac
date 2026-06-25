@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Step 0200 — create the dedicated VPC, public subnets, IGW and security groups.
+set -euo pipefail
+# shellcheck disable=SC1091
+. "$(dirname "$0")/lib.sh"
+
+: "${ONPREM_CIDR:?set ONPREM_CIDR (this server public IP /32) in config.env}"
+
+deploy_stack network "$AWSDMS_DIR/cfn/network.yaml" "OnPremCidr=${ONPREM_CIDR}"
+
+echo "--- outputs ---"
+aws cloudformation describe-stacks --stack-name "$(stack_name network)" \
+  --query 'Stacks[0].Outputs' --output table

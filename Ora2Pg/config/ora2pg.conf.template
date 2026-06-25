@@ -21,8 +21,15 @@ STOP_ON_ERROR	0
 # regardless of table load order.
 FKEY_DEFERRABLE	1
 DEFER_FKEY	1
+# Disable user triggers during data load (ALTER TABLE ... DISABLE TRIGGER USER,
+# owner-runnable) so audit/autonomous-transaction triggers do not fire on the
+# historical COPY — standard bulk-load practice.
+DISABLE_TRIGGERS	USER
 NLS_LANG	AMERICAN_AMERICA.AL32UTF8
 DATA_LIMIT	10000
 LONGREADLEN	104857600
 JOBS		1
+# Parallel Oracle read connections — overlaps round-trips to the slow remote
+# Oracle, which otherwise bottlenecks data export (esp. LOB columns).
+ORACLE_COPIES	4
 DEBUG		0

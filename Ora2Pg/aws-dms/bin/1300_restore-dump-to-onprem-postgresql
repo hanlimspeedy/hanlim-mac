@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Step 1300 — restore the downloaded dump into the on-prem PostgreSQL (local cluster).
+# Creates a fresh database (default appdb_from_aws) and restores with --no-owner so it
+# does not depend on AWS-side roles. Requires local sudo to the postgres superuser.
+set -euo pipefail
+# shellcheck disable=SC1091
+. "$(dirname "$0")/lib.sh"
+
+db="$(secret_field wrtp-pg-target dbname)"
+src="$OUTPUT_DIR/${db}.dump"
+target_db="${ONPREM_RESTORE_DB:-appdb_from_aws}"
+: "${src:?dump not found}"; [ -f "$src" ] || { echo "missing $src — run 1200 first" >&2; exit 1; }
+
+echo ">> (re)creating local database $target_db ..."
+sudo -u postgres psql -v ON_ERROR_STOP=1 -c "DROP DATABASE IF EXISTS ${target_db} WITH (FORCE);"
+sudo -u postgres createdb "$target_db"
+
+echo ">> restoring $src -> local $target_db ..."
+sudo -u postgres pg_restore --no-owner --no-privileges -j 4 -d "$target_db" "$src" || true  # FK/order warnings non-fatal
+
+echo "--- row counts (local $target_db) ---"
+sudo -u postgres psql -d "$target_db" -c \
+  "select schemaname, relname, n_live_tup from pg_stat_user_tables order by 1,2;"
+echo "OK: restored to local PostgreSQL database '$target_db'."

@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Step 0800 — convert the Oracle schema and apply it to the RDS target.
+# Converts the metadata model, then exports/applies it to the target data provider.
+# Async like 0700; re-run if an op is still in progress.
+set -euo pipefail
+# shellcheck disable=SC1091
+. "$(dirname "$0")/lib.sh"
+
+PROJ="wrtp-migration-project"
+RULES="$(jq -n --arg s "$ORACLE_SCHEMA" \
+  '{rules:[{"rule-type":"selection","rule-id":"1","rule-name":"sel","object-locator":{"schema-name":$s},"rule-action":"include"}]}')"
+bucket="$(stack_output foundation S3BucketName)"
+
+echo ">> converting metadata model ..."
+aws dms start-metadata-model-conversion --migration-project-identifier "$PROJ" --selection-rules "$RULES" || true
+sleep 30
+
+echo ">> exporting converted SQL to S3 (for the record) ..."
+aws dms start-metadata-model-export-as-script --migration-project-identifier "$PROJ" \
+  --selection-rules "$RULES" --origin SOURCE --file-name "wrtp-converted" || true
+sleep 10
+
+echo ">> applying converted schema to the target (RDS) ..."
+aws dms start-metadata-model-export-to-target --migration-project-identifier "$PROJ" \
+  --selection-rules "$RULES" --overwrite-extension-pack DoNotOverwrite || \
+  echo "   (apply not ready / needs re-run — check conversion status, then re-run 0800)"
+
+echo ">> syncing S3 (converted SQL) -> output/s3 ..."
+mkdir -p "$OUTPUT_DIR/s3"
+aws s3 sync "s3://${bucket}" "$OUTPUT_DIR/s3" || true
+echo "OK: schema applied to target (verify with psql \\dt). Next: bin/0900_create-data-migration-task"

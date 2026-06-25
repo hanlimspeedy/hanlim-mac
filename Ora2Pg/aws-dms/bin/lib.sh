@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# Shared helpers for the wrtp AWS DMS migration scripts. Source this at the top:
+#   . "$(dirname "$0")/lib.sh"
+set -euo pipefail
+
+AWSDMS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"   # the aws-dms/ directory
+CONFIG="$AWSDMS_DIR/config.env"
+
+if [ ! -f "$CONFIG" ]; then
+  cp "$AWSDMS_DIR/config.env.example" "$CONFIG"
+  echo "NOTE: created $CONFIG from example — review/fill it before the later steps." >&2
+fi
+set -a
+# shellcheck disable=SC1090
+. "$CONFIG"
+set +a
+
+export AWS_DEFAULT_REGION="${AWS_REGION:-ap-northeast-2}"
+[ -n "${AWS_PROFILE:-}" ] && export AWS_PROFILE
+
+WRTP_PREFIX="${WRTP_PREFIX:-wrtp}"
+TAG_KEY="${WRTP_TAG_KEY:-Project}"
+TAG_VALUE="${WRTP_TAG_VALUE:-wrtp}"
+
+OUTPUT_DIR="$AWSDMS_DIR/output"
+mkdir -p "$OUTPUT_DIR"
+
+# wrtp-<short>  e.g. stack_name network -> wrtp-network
+stack_name() { echo "${WRTP_PREFIX}-$1"; }
+
+# Deploy one CloudFormation template with the wrtp tag (idempotent create/update).
+#   deploy_stack <shortName> <templateFile> [Key=Value ...parameter overrides]
+deploy_stack() {
+  local short="$1" tpl="$2"; shift 2
+  local name; name="$(stack_name "$short")"
+  echo ">> deploying stack $name from $(basename "$tpl") ..."
+  if [ "$#" -gt 0 ]; then
+    aws cloudformation deploy --stack-name "$name" --template-file "$tpl" \
+      --tags "${TAG_KEY}=${TAG_VALUE}" --capabilities CAPABILITY_NAMED_IAM \
+      --parameter-overrides "$@"
+  else
+    aws cloudformation deploy --stack-name "$name" --template-file "$tpl" \
+      --tags "${TAG_KEY}=${TAG_VALUE}" --capabilities CAPABILITY_NAMED_IAM
+  fi
+  echo ">> $name: $(aws cloudformation describe-stacks --stack-name "$name" --query 'Stacks[0].StackStatus' --output text)"
+}
+
+# Read a stack output value by OutputKey.
+stack_output() { # <shortName> <OutputKey>
+  aws cloudformation describe-stacks --stack-name "$(stack_name "$1")" \
+    --query "Stacks[0].Outputs[?OutputKey=='$2'].OutputValue" --output text
+}
+
+aws_account_id() { aws sts get-caller-identity --query Account --output text; }
+
+# Read one field from a wrtp Secrets Manager secret's JSON.
+secret_field() { # <secret-name> <jsonKey>
+  aws secretsmanager get-secret-value --secret-id "$1" --query SecretString --output text | jq -r ".$2 // empty"
+}
+
+# Does a CloudFormation stack exist?
+stack_exists() { aws cloudformation describe-stacks --stack-name "$(stack_name "$1")" >/dev/null 2>&1; }
+
+# Default S3 bucket name (deterministic).
+default_bucket() { echo "${S3_BUCKET:-${WRTP_PREFIX}-sc-$(aws_account_id)-${AWS_DEFAULT_REGION}}"; }

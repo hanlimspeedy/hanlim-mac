@@ -3,3 +3,11 @@ output/
 .env
 downloads/
 ora2pg-src/
+aws-dms/config.env
+aws-dms/*.local
+aws-dms/*.local.env
+# AWS access keys / secrets saved locally — never commit
+.wrtp-migration-user_accessKeys.env
+*accessKeys*.env
+*accessKeys*.csv
+*.accessKeys*
