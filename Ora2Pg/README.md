@@ -65,6 +65,12 @@ path (`MIGRATION_TYPE=full-load-and-cdc`). Open-source CDC would need a separate
 - `bin/step-19-load-schema-ivory` / `step-20-load-data-ivory`: load into IvorySQL
 - `bin/step-21-validate-pg` / `step-22-validate-ivory`: Ora2Pg TYPE=TEST structural validation
 - `bin/step-23-compatibility-report`: write `output/COMPATIBILITY_REPORT.md`
+- `bin/step-24-create-data-only-target <pg|ivory>`: create empty `sample_pg_dataonly`/`sample_ivory_dataonly` (data-only)
+- `bin/step-25-apply-developed-schema <pg|ivory>`: apply the hand-developed PostgreSQL schema (shared, in `aws-dms/sql/data-only/`)
+- `bin/step-26-export-base-table-data`: provide base-table COPY data (reuses step-16 export; routes orders partitions to parent)
+- `bin/step-27-load-base-table-data <pg|ivory>`: load base-table data (superuser + `session_replication_role=replica`)
+- `bin/step-28-finalize-data-only <pg|ivory>`: reset sequences + refresh materialized views
+- `bin/step-29-verify-data-only <pg|ivory>`: row-count compare Oracle vs the data-only target (PASS/FAIL)
 - `bin/pg-psql <pg|ivory>`: run psql against a selected target
 - `bin/load-sql-dir <pg|ivory> <dir> <log>`: load all `*.sql` in a dir, logging errors
 - `bin/reset-target <pg|ivory>`: drop and recreate a target db for a clean reload
@@ -112,6 +118,28 @@ are in [MIGRATION_TEST.md](MIGRATION_TEST.md).
 26. `bin/step-21-validate-pg`
 27. `bin/step-22-validate-ivory`
 28. `bin/step-23-compatibility-report` → `output/COMPATIBILITY_REPORT.md`
+
+### Data-only path (developed schema + base-table data, steps 24–29)
+
+Mirrors the AWS DMS data-only path: apply a hand-developed PostgreSQL schema separately, then
+load ONLY base-table row data (one-time, `TYPE=COPY`) — into dedicated DBs `sample_pg_dataonly`
+/ `sample_ivory_dataonly` so the full-conversion `sample_pg`/`sample_ivory` are kept for comparison.
+The developed schema, base-table list, MV refresh and sequence-reset are the SAME shared assets
+as the AWS path, referenced in place under `aws-dms/sql/data-only/`. Run one at a time, per target:
+
+```
+bin/step-24-create-data-only-target pg     # then: ivory
+bin/step-25-apply-developed-schema pg       # then: ivory   (pgcrypto: trusted on pg; stripped on ivory — unused)
+bin/step-26-export-base-table-data          # once (reuses step-16 export if present)
+bin/step-27-load-base-table-data pg         # then: ivory   (FK/triggers bypassed via replica role)
+bin/step-28-finalize-data-only pg           # then: ivory   (sequences + materialized views)
+bin/step-29-verify-data-only pg             # then: ivory   (row counts vs Oracle → PASS)
+```
+
+**CDC is NOT supported by Ora2Pg** (confirmed: `ora2pg-src/doc/Ora2Pg.pod` — "Ora2Pg does not have
+a feature which allows importing data and only applying changes after the first import"). `--cdc_ready`
+only records per-table SCN for an external tool; for incremental sync use Debezium/SymmetricDS
+(out of scope) or the AWS DMS CDC path (`aws-dms/`, `MIGRATION_TYPE=full-load-and-cdc`).
 
 ## Step policy
 

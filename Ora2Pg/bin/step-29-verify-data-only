@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Step 29 (data-only) — verify the data-only load by comparing ROW COUNTS per base table:
+# Oracle source vs the data-only target. (Structure intentionally differs from Oracle in the
+# hand-developed schema, so a full TYPE=TEST is noise here — row parity is the data-only goal.)
+#   step-29-verify-data-only <pg|ivory>
+set -euo pipefail
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck disable=SC1091
+. "$PROJECT_DIR/bin/env.sh"
+
+: "${ORA_USER:?}"; : "${ORA_PASSWORD:?}"; : "${ORA_SCHEMA:?}"
+TARGET="${1:?usage: $(basename "$0") <pg|ivory>}"
+case "$TARGET" in pg|ivory) ;; *) echo "usage: $(basename "$0") <pg|ivory>" >&2; exit 64 ;; esac
+PG_DATAONLY_DB="${DATAONLY_PG_DB:-sample_pg_dataonly}"
+IVY_DATAONLY_DB="${DATAONLY_IVY_DB:-sample_ivory_dataonly}"
+DATAONLY_SQL_DIR="$PROJECT_DIR/aws-dms/sql/data-only"
+
+target_count() {  # row count of sample.<t> on the data-only target
+  if [ "$TARGET" = "pg" ]; then
+    PGPASSWORD="$PG_APP_PASSWORD" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_APP_USER" -d "$PG_DATAONLY_DB" -tAc "SELECT count(*) FROM sample.\"$1\""
+  else
+    PGPASSWORD="$IVY_PASSWORD" psql -h "$IVY_HOST" -p "$IVY_PORT" -U "$IVY_SUPERUSER" -d "$IVY_DATAONLY_DB" -tAc "SELECT count(*) FROM sample.\"$1\""
+  fi
+}
+
+# Count all base tables in Oracle in a single sqlplus session.
+gen=""; while IFS= read -r t; do [ -n "$t" ] && gen+="SELECT '${t}:'||COUNT(*) FROM ${ORA_SCHEMA}.${t};"$'\n'; done < "$DATAONLY_SQL_DIR/base-table-list.txt"
+echo ">> counting Oracle base tables (single session) ..."
+ora_out="$(sqlplus -L -s "${ORA_USER}/${ORA_PASSWORD}@//${ORACLE_HOST}:${ORACLE_PORT}/${ORACLE_SERVICE}" <<SQL
+set heading off feedback off pages 0 lines 200 trimspool on echo off
+${gen}
+exit
+SQL
+)"
+
+report="$PROJECT_DIR/output/29_rowcount_dataonly_${TARGET}.txt"
+mkdir -p "$PROJECT_DIR/output"
+fail=0
+{
+  printf "%-20s %12s %12s  %s\n" "table" "oracle" "$TARGET" "verdict"
+  while IFS= read -r t; do
+    [ -n "$t" ] || continue
+    o="$(printf '%s\n' "$ora_out" | sed -n "s/^${t}://p" | tr -d ' ')"
+    p="$(target_count "$t" | tr -d ' ')"
+    v="PASS"; [ "$o" = "$p" ] || { v="FAIL"; fail=1; }
+    printf "%-20s %12s %12s  %s\n" "$t" "${o:-?}" "${p:-?}" "$v"
+  done < "$DATAONLY_SQL_DIR/base-table-list.txt"
+} | tee "$report"
+
+echo "--- saved: output/$(basename "$report") ---"
+[ "$fail" -eq 0 ] && echo "RESULT: PASS (all base-table row counts match Oracle)" || { echo "RESULT: FAIL (row count mismatch)"; exit 1; }

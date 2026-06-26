@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+# Step 24 (data-only) — create a fresh EMPTY data-only target DB, SEPARATE from the
+# full-conversion result (sample_pg / sample_ivory) so both are kept for comparison.
+#   step-24-create-data-only-target pg     -> sample_pg_dataonly    (native PostgreSQL)
+#   step-24-create-data-only-target ivory  -> sample_ivory_dataonly (IvorySQL container)
+# Operates DIRECTLY on the data-only DB name (NOT via reset-target/step-11): .oracle.env
+# hardcodes PG_DB/IVY_DB and env.sh re-sources it in every child, so an exported override
+# would be clobbered (and would hit sample_pg/sample_ivory). Renders the same target
+# templates with the data-only DB name.
+set -euo pipefail
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck disable=SC1091
+. "$PROJECT_DIR/bin/env.sh"
+
+TARGET="${1:?usage: $(basename "$0") <pg|ivory>}"
+PG_DATAONLY_DB="${DATAONLY_PG_DB:-sample_pg_dataonly}"
+IVY_DATAONLY_DB="${DATAONLY_IVY_DB:-sample_ivory_dataonly}"
+TMP="$(mktemp)"; trap 'rm -f "$TMP"' EXIT
+
+case "$TARGET" in
+  pg)
+    : "${PG_APP_USER:?}"; : "${PG_APP_PASSWORD:?}"
+    PG_APP_USER="$PG_APP_USER" PG_APP_PASSWORD="$PG_APP_PASSWORD" PG_DB="$PG_DATAONLY_DB" \
+      perl -0pe '
+        s/__PG_APP_USER__/$ENV{PG_APP_USER}/g;
+        s/__PG_APP_PASSWORD__/$ENV{PG_APP_PASSWORD}/g;
+        s/__PG_DB__/$ENV{PG_DB}/g;
+      ' "$PROJECT_DIR/sql/10_create_pg_target.sql.template" > "$TMP"
+    echo ">> (re)creating $PG_DATAONLY_DB (native PostgreSQL) ..."
+    sudo -u postgres psql -v ON_ERROR_STOP=1 -c "DROP DATABASE IF EXISTS ${PG_DATAONLY_DB} WITH (FORCE);"
+    sudo -u postgres psql -v ON_ERROR_STOP=1 < "$TMP"
+    echo "OK: database $PG_DATAONLY_DB ready" ;;
+  ivory)
+    : "${IVY_PASSWORD:?}"
+    IVY_DB="$IVY_DATAONLY_DB" perl -0pe 's/__IVY_DB__/$ENV{IVY_DB}/g' \
+      "$PROJECT_DIR/sql/11_create_ivory_target.sql.template" > "$TMP"
+    echo ">> (re)creating $IVY_DATAONLY_DB (IvorySQL) ..."
+    PGPASSWORD="$IVY_PASSWORD" psql -h "$IVY_HOST" -p "$IVY_PORT" -U "$IVY_SUPERUSER" -d "$IVY_SUPERUSER" \
+      -v ON_ERROR_STOP=1 -c "DROP DATABASE IF EXISTS ${IVY_DATAONLY_DB} WITH (FORCE);"
+    PGPASSWORD="$IVY_PASSWORD" psql -h "$IVY_HOST" -p "$IVY_PORT" -U "$IVY_SUPERUSER" -d "$IVY_SUPERUSER" \
+      -v ON_ERROR_STOP=1 < "$TMP"
+    echo "OK: database $IVY_DATAONLY_DB ready" ;;
+  *) echo "usage: $(basename "$0") <pg|ivory>" >&2; exit 64 ;;
+esac
+echo "Next: bin/step-25-apply-developed-schema $TARGET"

@@ -127,3 +127,26 @@ IVY_IMAGE=ivorysql/ivorysql:3.4-ubi8   IVY_CONTAINER=ora2pg-ivory
 - 공통 수동 보정 대상: 패키지 프로시저 일부, 머티리얼라이즈드 뷰, 오라클 분석함수(RATIO_TO_REPORT) 뷰,
   varchar GIN 인덱스, 자율트랜잭션 감사 트리거(dblink 설치 또는 재설계).
 - 저다운타임 컷오버는 Ora2Pg(오프라인) 범위 밖이며 별도 CDC 도구(Debezium/SymmetricDS) 설계가 필요하다.
+
+## 8. 데이터 전용(data-only) 경로 (steps 24–29)
+
+AWS DMS data-only 경로와 같은 개념을 Ora2Pg로 재현: **손으로 다듬은 PostgreSQL 스키마를 따로 적용**하고
+**base table 행 데이터만 1회 적재**(`TYPE=COPY`). 전체변환 결과(`sample_pg`/`sample_ivory`) 보존을 위해
+전용 DB `sample_pg_dataonly`/`sample_ivory_dataonly`에 적재한다. 개발 스키마·base table 목록·MV refresh·
+시퀀스 보정은 AWS 경로와 **동일 자산을 `aws-dms/sql/data-only/`에서 그 자리 참조**(단일 소스, 복제 없음).
+
+실행(한 번에 한 단계, 타깃별): `step-24`(전용 DB 생성) → `step-25`(개발 스키마 적용) →
+`step-26`(base-table COPY 데이터 준비) → `step-27`(적재) → `step-28`(시퀀스+MV) →
+`step-29`(Oracle 대비 행수 검증, PASS).
+
+설계 결정 / 주의:
+- **전용 DB**: 모든 단계가 `sample_pg_dataonly`/`sample_ivory_dataonly`만 대상. `.oracle.env`가 `PG_DB`/`IVY_DB`를
+  하드코딩하고 자식이 `env.sh`를 재source하므로, 헬퍼 env override 대신 각 단계가 전용 DB명으로 **직접 psql**한다.
+- **step-26 재사용**: SAMPLE은 base table만 데이터가 있어 step-16의 전체 `TYPE=COPY` 추출본을 재사용(느린 원격
+  Oracle 재추출 회피). orders는 Oracle 파티션명(p2018…)으로 COPY되므로 **부모 `orders`로 라우팅** 치환
+  (개발 스키마 파티션명 무관, PostgreSQL이 order_date로 분배).
+- **step-27 적재**: 개발 스키마의 비-deferrable FK(자기참조 `employees.manager_id` 포함)와 감사 트리거를
+  우회하려고 **superuser + `session_replication_role=replica`**로 적재(AWS와 동일 원리). 데이터는 Oracle에서 정합.
+- **pgcrypto**: 개발 스키마에 선언만 있고 미사용. pg는 trusted 확장이라 app user가 설치, IvorySQL 컨테이너는
+  contrib 미포함이라 `step-25`가 ivory에서만 해당 `CREATE EXTENSION` 라인을 제거하고 나머지는 엄격 적용한다.
+- **CDC 미지원**: Ora2Pg는 증분 동기화 불가(§7). data-only는 1회 적재까지가 범위.

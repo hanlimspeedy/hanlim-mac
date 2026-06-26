@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Step 25 (data-only) — apply the hand-developed PostgreSQL schema to the data-only target,
+# then verify the base tables exist. Developed schema is the SINGLE SOURCE shared with the
+# AWS data-only path; referenced in place: aws-dms/sql/data-only/schema/0100,0110.
+#   step-25-apply-developed-schema <pg|ivory>
+# Connects DIRECTLY to the data-only DB (not pg-psql, which is bound to .oracle.env PG_DB).
+# pgcrypto is trusted (PG13+) so the DB-owner app user can install it (pg); ivory = superuser.
+set -euo pipefail
+PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+# shellcheck disable=SC1091
+. "$PROJECT_DIR/bin/env.sh"
+
+TARGET="${1:?usage: $(basename "$0") <pg|ivory>}"
+case "$TARGET" in pg|ivory) ;; *) echo "usage: $(basename "$0") <pg|ivory>" >&2; exit 64 ;; esac
+PG_DATAONLY_DB="${DATAONLY_PG_DB:-sample_pg_dataonly}"
+IVY_DATAONLY_DB="${DATAONLY_IVY_DB:-sample_ivory_dataonly}"
+
+do_psql() {  # connect to the DATA-ONLY db (bypass .oracle.env PG_DB/IVY_DB)
+  if [ "$TARGET" = "pg" ]; then
+    PGPASSWORD="$PG_APP_PASSWORD" psql -h "$PG_HOST" -p "$PG_PORT" -U "$PG_APP_USER" -d "$PG_DATAONLY_DB" "$@"
+  else
+    PGPASSWORD="$IVY_PASSWORD" psql -h "$IVY_HOST" -p "$IVY_PORT" -U "$IVY_SUPERUSER" -d "$IVY_DATAONLY_DB" "$@"
+  fi
+}
+
+DATAONLY_SQL_DIR="$PROJECT_DIR/aws-dms/sql/data-only"
+echo ">> applying developed PostgreSQL schema to data-only target ($TARGET) ..."
+for f in "$DATAONLY_SQL_DIR"/schema/0100_*.sql "$DATAONLY_SQL_DIR"/schema/0110_*.sql; do
+  echo "   -f $(basename "$f")"
+  if [ "$TARGET" = "ivory" ]; then
+    # IvorySQL container has no pgcrypto contrib; the developed schema doesn't actually
+    # use any pgcrypto function (declared only), so drop that one line and stay strict.
+    sed '/CREATE EXTENSION[^;]*pgcrypto/Id' "$f" | do_psql -v ON_ERROR_STOP=1 -f -
+  else
+    do_psql -v ON_ERROR_STOP=1 -f "$f"
+  fi
+done
+
+echo ">> verifying base tables exist (from base-table-list.txt) ..."
+missing=0
+while IFS= read -r t; do
+  [ -n "$t" ] || continue
+  ok="$(do_psql -tAc "SELECT to_regclass('sample.$t') IS NOT NULL")"
+  if [ "$ok" != "t" ]; then echo "   MISSING: sample.$t"; missing=$((missing + 1)); fi
+done < "$DATAONLY_SQL_DIR/base-table-list.txt"
+[ "$missing" -eq 0 ] || { echo "ERROR: $missing base table(s) missing after schema apply" >&2; exit 1; }
+
+echo "OK: developed schema applied to $TARGET. Next: bin/step-26-export-base-table-data"
