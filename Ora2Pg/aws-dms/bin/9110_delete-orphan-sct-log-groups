@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Step 9110 — delete known orphan DMS Schema Conversion CloudWatch log groups.
+# DRY-RUN by default. These log groups are not tagged and are not attached to the
+# current wrtp stacks/migration project, so they are kept out of 9100.
+set -euo pipefail
+# shellcheck disable=SC1091
+. "$(dirname "$0")/lib.sh"
+
+APPLY=0
+case "${1:-}" in
+  --apply) APPLY=1 ;;
+  "") ;;
+  *) echo "usage: $(basename "$0") [--apply]" >&2; exit 64 ;;
+esac
+
+targets=(
+  dms-tasks-sct-3L76YBZHFVGG5C3GLHAQTMDWWI
+  dms-tasks-sct-U3SWQ7O7H5CTHAGPINHAMASQUQ
+)
+
+current_project_id=""
+if aws dms describe-migration-projects >/dev/null 2>&1; then
+  current_project_id="$(
+    aws dms describe-migration-projects \
+      --query "MigrationProjects[?MigrationProjectName=='wrtp-migration-project'].MigrationProjectArn | [0]" \
+      --output text 2>/dev/null | awk -F: '$0 != "None" { print $NF }'
+  )"
+fi
+
+echo "=== orphan SCT log group cleanup — mode: $([ "$APPLY" -eq 1 ] && echo APPLY || echo 'DRY-RUN (nothing will be deleted)') ==="
+[ -n "$current_project_id" ] && echo "active wrtp migration project id: $current_project_id"
+
+for g in "${targets[@]}"; do
+  if [ -n "$current_project_id" ] && [ "$g" = "dms-tasks-sct-$current_project_id" ]; then
+    echo "ERROR: refusing to delete active wrtp SCT log group: $g" >&2
+    exit 1
+  fi
+
+  found="$(
+    aws logs describe-log-groups --log-group-name-prefix "$g" \
+      --query "logGroups[?logGroupName=='$g'].logGroupName | [0]" --output text 2>/dev/null || true
+  )"
+  if [ "$found" != "$g" ]; then
+    echo "skip $g (not present)"
+    continue
+  fi
+
+  echo "--- $g : would be deleted ---"
+  aws logs describe-log-groups --log-group-name-prefix "$g" \
+    --query "logGroups[?logGroupName=='$g'].{Name:logGroupName,StoredBytes:storedBytes,Retention:retentionInDays,Created:creationTime}" \
+    --output table
+  aws logs describe-log-streams --log-group-name "$g" --order-by LastEventTime --descending --max-items 3 \
+    --query "logStreams[].{Stream:logStreamName,StoredBytes:storedBytes,LastEvent:lastEventTimestamp}" \
+    --output table
+
+  if [ "$APPLY" -eq 1 ]; then
+    aws logs delete-log-group --log-group-name "$g"
+    echo "   deleted $g"
+  fi
+done
+
+if [ "$APPLY" -eq 0 ]; then
+  echo "DRY-RUN only. To delete exactly these log groups: $(basename "$0") --apply"
+else
+  echo "Apply complete. Verify with: aws logs describe-log-groups --log-group-name-prefix dms-tasks-sct"
+fi

@@ -1,42 +1,4 @@
 #!/usr/bin/env bash
-# Step 1300 — restore the downloaded dump into an ISOLATED Docker PostgreSQL 16
-# container for verification. Does NOT touch the native on-prem PostgreSQL.
-# (Run host pg_restore against the container's published port; the dump is read
-# by the ubuntu user, so no sudo/permission issues.)
+# Compatibility wrapper. Use the clearer Docker-specific step name.
 set -euo pipefail
-# shellcheck disable=SC1091
-. "$(dirname "$0")/lib.sh"
-
-db="${RDS_DB_NAME:-appdb}"                          # from config.env (no AWS dependency; works post-teardown)
-src="$OUTPUT_DIR/${db}.dump"
-[ -f "$src" ] || { echo "missing $src — run 1200 first" >&2; exit 1; }
-
-CNAME="${VERIFY_CONTAINER:-wrtp-verify-pg}"
-CPORT="${VERIFY_PORT:-5434}"
-CPW="${VERIFY_PASSWORD:-wrtpVerify1}"
-target_db="${ONPREM_RESTORE_DB:-appdb_from_aws}"
-
-# Isolated postgres:16 container (separate from native :5432 and IvorySQL :5433).
-if docker ps --format '{{.Names}}' | grep -qx "$CNAME"; then
-  echo "container $CNAME already running"
-elif docker ps -a --format '{{.Names}}' | grep -qx "$CNAME"; then
-  docker start "$CNAME"
-else
-  echo "starting verify container $CNAME (postgres:16) on port $CPORT ..."
-  docker run -d --name "$CNAME" -p "${CPORT}:5432" -e POSTGRES_PASSWORD="$CPW" postgres:16
-fi
-echo "waiting for $CNAME ..."
-for i in $(seq 1 60); do docker exec "$CNAME" pg_isready -U postgres >/dev/null 2>&1 && break; sleep 1; done
-
-export PGPASSWORD="$CPW"
-psql -h 127.0.0.1 -p "$CPORT" -U postgres -tAc "DROP DATABASE IF EXISTS ${target_db} WITH (FORCE);"
-psql -h 127.0.0.1 -p "$CPORT" -U postgres -tAc "CREATE DATABASE ${target_db};"
-
-echo ">> restoring $src -> docker ${CNAME}/${target_db} ..."
-pg_restore --no-owner --no-privileges -j 4 -h 127.0.0.1 -p "$CPORT" -U postgres -d "$target_db" "$src" || true  # warnings non-fatal
-
-echo "--- row counts (docker ${target_db}, schema sample) ---"
-psql -h 127.0.0.1 -p "$CPORT" -U postgres -d "$target_db" -c \
-  "select relname, n_live_tup from pg_stat_user_tables where schemaname='sample' order by relname;"
-echo "OK: restored into isolated Docker container '$CNAME' (port $CPORT). Native on-prem PG untouched."
-echo "Remove when done: docker rm -f $CNAME"
+exec "$(dirname "$0")/1300_restore-dump-to-docker-postgresql" "$@"

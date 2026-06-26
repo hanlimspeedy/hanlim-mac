@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Step 9100 — tear down ONLY the resources this project created. DRY-RUN by default.
 #   (no args)          preview what would be deleted (deletes nothing)
-#   --apply            delete the safe stacks (network, foundation, schema-conversion, data-migration)
+#   --apply            delete non-RDS stacks (RDS/network are kept unless --delete-rds)
 #   --delete-rds       also delete the RDS target stack (DATA LOSS — only after 1200 download)
 #   --include-shared   also delete the account-shared dms-vpc-role/cloudwatch role stack
 # Stacks are deleted in reverse dependency order. Resources NOT in these stacks are never touched.
@@ -18,7 +18,14 @@ esac; done
 # DMS auto-creates CloudWatch log groups OUTSIDE CloudFormation, so delete-stack leaves
 # them behind. Capture the ones tied to THIS run (replication instance + migration project)
 # now, before their stacks are deleted, so teardown removes exactly ours (not other DMS use).
-RI_LOG="dms-tasks-wrtp-dms-ri"   # matches ReplicationInstanceIdentifier in data-migration.yaml
+RI_LOG=""
+if stack_exists data-migration; then
+  RI_LOG="dms-tasks-wrtp-dms-ri" # matches ReplicationInstanceIdentifier in data-migration.yaml
+fi
+DATA_ONLY_RI_LOG=""
+if stack_exists data-only-migration; then
+  DATA_ONLY_RI_LOG="dms-tasks-wrtp-data-only-dms-ri" # matches ReplicationInstanceIdentifier in data-only-data-migration.yaml
+fi
 SCT_LOG=""
 if stack_exists schema-conversion; then
   _projarn="$(stack_output schema-conversion MigrationProjectArn 2>/dev/null || true)"
@@ -41,7 +48,8 @@ aws resourcegroupstaggingapi get-resources --tag-filters "Key=${TAG_KEY},Values=
 echo
 
 empty_bucket() {
-  local b; b="$(default_bucket)"
+  local b
+  b="$(stack_output foundation S3BucketName 2>/dev/null || default_bucket)"
   echo "   would empty s3://$b"
   [ "$APPLY" -eq 1 ] || return 0
   aws s3 rm "s3://$b" --recursive || true
@@ -57,9 +65,22 @@ empty_bucket() {
   done
 }
 
+stack_has_project_tag() { # <short>
+  local short="$1" name tag
+  name="$(stack_name "$short")"
+  tag="$(aws cloudformation describe-stacks --stack-name "$name" \
+    --query "Stacks[0].Tags[?Key=='${TAG_KEY}' && Value=='${TAG_VALUE}'] | length(@)" \
+    --output text 2>/dev/null || echo 0)"
+  [ "$tag" = "1" ]
+}
+
 delete_stack() { # <short> [pre-hook-fn]
   local short="$1" name; name="$(stack_name "$short")"
   if ! stack_exists "$short"; then echo "skip $name (not present)"; return; fi
+  if ! stack_has_project_tag "$short"; then
+    echo "ERROR: refusing to delete $name because it is not tagged ${TAG_KEY}=${TAG_VALUE}" >&2
+    exit 1
+  fi
   echo "--- $name : resources that would be deleted ---"
   aws cloudformation list-stack-resources --stack-name "$name" \
     --query 'StackResourceSummaries[].{Type:ResourceType,Physical:PhysicalResourceId}' --output table
@@ -72,23 +93,33 @@ delete_stack() { # <short> [pre-hook-fn]
 }
 
 # A running replication task blocks stack deletion — stop it first (apply mode).
-if [ "$APPLY" -eq 1 ] && stack_exists data-migration; then
-  t="$(stack_output data-migration ReplicationTaskArn 2>/dev/null || true)"
+# A running replication task blocks stack deletion — stop it first (apply mode).
+stop_replication_task_if_running() { # <stack-short>
+  local short="$1" t s
+  [ "$APPLY" -eq 1 ] || return 0
+  stack_exists "$short" || return 0
+  t="$(stack_output "$short" ReplicationTaskArn 2>/dev/null || true)"
   if [ -n "$t" ]; then
     s="$(aws dms describe-replication-tasks --filters Name=replication-task-arn,Values="$t" --query 'ReplicationTasks[0].Status' --output text 2>/dev/null || echo)"
     if [ "$s" = "running" ] || [ "$s" = "starting" ]; then
-      echo "stopping running replication task before delete ..."
+      echo "stopping running replication task for $(stack_name "$short") before delete ..."
       aws dms stop-replication-task --replication-task-arn "$t" >/dev/null 2>&1 || true
-      for i in $(seq 1 40); do s="$(aws dms describe-replication-tasks --filters Name=replication-task-arn,Values="$t" --query 'ReplicationTasks[0].Status' --output text 2>/dev/null)"; echo "  task: $s"; [ "$s" = "stopped" ] && break; sleep 10; done
+      for _ in $(seq 1 40); do s="$(aws dms describe-replication-tasks --filters Name=replication-task-arn,Values="$t" --query 'ReplicationTasks[0].Status' --output text 2>/dev/null)"; echo "  task: $s"; [ "$s" = "stopped" ] && break; sleep 10; done
     fi
   fi
-fi
+}
 
+stop_replication_task_if_running data-only-migration
+stop_replication_task_if_running data-migration
+
+delete_stack data-only-migration
 delete_stack data-migration
 delete_stack schema-conversion
 
+keep_rds=0
 if stack_exists target-postgresql; then
-  if [ "$APPLY" -eq 1 ] && [ "$DEL_RDS" -eq 0 ]; then
+  if [ "$DEL_RDS" -eq 0 ]; then
+    keep_rds=1
     echo "--- $(stack_name target-postgresql) : SKIPPED (RDS holds data — pass --delete-rds to remove) ---"
   else
     delete_stack target-postgresql
@@ -96,7 +127,11 @@ if stack_exists target-postgresql; then
 fi
 
 delete_stack foundation empty_bucket
-delete_stack network
+if [ "$keep_rds" -eq 1 ]; then
+  echo "--- $(stack_name network) : SKIPPED (RDS stack still depends on its subnet/security group) ---"
+else
+  delete_stack network
+fi
 
 if stack_exists shared-dms-roles; then
   if [ "$INC_SHARED" -eq 1 ]; then delete_stack shared-dms-roles
@@ -104,6 +139,7 @@ if stack_exists shared-dms-roles; then
 fi
 
 # DMS-created CloudWatch log groups for THIS run (not tracked by CloudFormation).
+delete_log_group "$DATA_ONLY_RI_LOG"
 delete_log_group "$RI_LOG"
 delete_log_group "$SCT_LOG"
 

@@ -34,37 +34,72 @@
 | 0300 | `bin/0300_create-foundation-s3-secrets-iam` | S3(SSE-S3)/Secrets/IAM 역할 |
 | 0400 | `bin/0400_set-connection-secrets` | Oracle·PG 자격증명 주입(미저장) |
 | 0500 | `bin/0500_create-target-postgresql-rds` | 임시 RDS PG16 |
+| 0550 | `bin/0550_apply-developed-postgresql-schema` | final data-only용 PostgreSQL 개발 스키마 적용(0600~0850 대체 경로) |
 | 0600 | `bin/0600_create-schema-conversion-project` | DMS Schema Conversion |
 | 0700 | `bin/0700_run-schema-assessment-report` | 평가 리포트 |
 | 0800 | `bin/0800_convert-and-apply-schema-to-target` | 스키마 변환·적용 |
 | 0850 | `bin/0850_fix-postgresql-schema-after-dms-conversion` | DMS 변환 후 PostgreSQL 스키마 보정 |
 | 0900 | `bin/0900_create-data-migration-task` | DMS full-load 태스크 |
+| 0950 | `bin/0950_create-data-only-full-load-and-cdc-task` | final data-only DMS full-load+CDC 태스크(0900 대체 경로) |
 | 1000 | `bin/1000_test-endpoint-connections` | 엔드포인트 연결 테스트 |
+| 1010 | `bin/1010_test-data-only-endpoint-connections` | final data-only 엔드포인트 연결 테스트 |
 | 1100 | `bin/1100_run-full-load-and-validate` | full-load + 검증 (CDC면 이후 ongoing replication) |
+| 1110 | `bin/1110_run-data-only-full-load-and-validate` | final data-only full-load + 검증, 이후 CDC 유지 |
 | 1150 | `bin/1150_monitor-cdc-replication` | (CDC) 태스크 상태·변경건수·지연 모니터(읽기) |
+| 1155 | `bin/1155_monitor-data-only-cdc-replication` | final data-only CDC 상태·변경건수·지연 모니터(읽기) |
 | 1160 | `bin/1160_validate-cdc-change` | (CDC) Oracle 변경이 RDS로 전파되는지 검증 |
+| 1165 | `bin/1165_validate-data-only-cdc-change` | final data-only CDC 전파 검증 |
 | 1180 | `bin/1180_stop-cdc-for-cutover` | (CDC) 소스 정지 후 컷오버·시퀀스 보정 |
+| 1190 | `bin/1190_stop-data-only-cdc-for-cutover` | final data-only 컷오버·시퀀스 보정·MV refresh hook |
 | 1200 | `bin/1200_download-postgresql-dump` | pg_dump 다운로드 |
-| 1300 | `bin/1300_restore-dump-to-onprem-postgresql` | 온프레미스 복원(선택) |
+| 1300 | `bin/1300_restore-dump-to-docker-postgresql` | 현재 서버 Docker PostgreSQL 검증 DB에 복원 |
 | 1400 | `bin/1400_compare-conversions` | Ora2Pg 결과와 AWS DMS 복원 결과 간 단순 객체 비교 |
 | 1450 | `bin/1450_compare-oracle-source-to-postgresql-conversions` | Oracle 원본 기준 Ora2Pg/AWS DMS 3자 검증 |
 | 9000 | `bin/9000_list-wrtp-resources` | wrtp 리소스 인벤토리(읽기) |
-| 9100 | `bin/9100_teardown-wrtp-resources` | AWS 정리(dry-run 기본; DMS 로그그룹 포함) |
+| 9100 | `bin/9100_teardown-wrtp-resources` | AWS 정리(dry-run 기본; DMS 로그그룹 포함; RDS 삭제는 `--delete-rds`) |
+| 9110 | `bin/9110_delete-orphan-sct-log-groups` | 태그/스택에 연결되지 않은 과거 SCT 로그그룹 2개 삭제(dry-run 기본) |
 | 9200 | `bin/9200_revert-oracle-cdc-prerequisites` | (CDC) Oracle 변경 되돌리기 — 권한·보충로깅·디렉터리; `--disable-archivelog`=ARCHIVELOG 환원(재시작) |
 | 9210 | `bin/9210_purge-fra-archivelogs` | (CDC) FRA 아카이브 로그 회수(RMAN); dry-run 기본, `--apply` |
 
 생성되는 리소스 규칙·목록은 [CREATED_RESOURCES.md](CREATED_RESOURCES.md) 참고.
 
+## Final data-only 절차
+
+개발 중에는 `0600`~`0850`으로 전체 변환 스키마를 만들고 full-load+CDC를 붙여 비교한다. 실제 오픈 직전에는
+기존 PostgreSQL target을 새로 만들고, **개발 중 확정된 PostgreSQL 스키마만** repo SQL로 적용한 뒤,
+Oracle에서 **base table data만** 다시 full-load+CDC로 따라잡는다.
+
+이 경로는 `0600`~`0850`/`0900`/`1000`/`1100`/`1150`/`1180` 대신 다음 단계를 사용한다.
+
+1. `0500_create-target-postgresql-rds`
+2. `0550_apply-developed-postgresql-schema`
+3. `0950_create-data-only-full-load-and-cdc-task`
+4. `1010_test-data-only-endpoint-connections`
+5. `1110_run-data-only-full-load-and-validate`
+6. `1155_monitor-data-only-cdc-replication`
+7. `1165_validate-data-only-cdc-change`
+8. `1190_stop-data-only-cdc-for-cutover --source-quiesced`
+9. `1200_download-postgresql-dump`
+
+`sql/data-only/schema/*.sql`은 PostgreSQL용으로 개발·확정된 스키마 원천이다. view, materialized view, sequence,
+trigger, function, constraint, index는 여기에 유지한다. DMS data-only task는
+`sql/data-only/base-table-list.txt`에 있는 base table row만 적재하고 CDC도 같은 base table에만 적용한다.
+Oracle materialized view와 `MLOG$%`는 이 경로에서 적재 대상이 아니다. 컷오버 후 PostgreSQL MV refresh가
+필요하면 `sql/data-only/1190_refresh-developed-materialized-views.sql`에 명시한다.
+
 ## 비용 주의
 
-복제 인스턴스·RDS·Schema Conversion 인스턴스는 **시간당 과금**. 다운로드(1200) 직후 `9100`으로 정리한다.
+복제 인스턴스·RDS·Schema Conversion 인스턴스는 **시간당 과금**. 다운로드(1200) 직후 `9100 --apply --delete-rds`로 정리한다.
 **CDC 모드(`full-load-and-cdc`)** 에서는 복제 인스턴스+RDS 가 컷오버(`1180`)까지 계속 과금되므로,
-`1180`→`1200` 완료 후에만 `9100`으로 정리한다.
+`1180` 또는 `1190` → `1200` 완료 후에만 `9100`으로 정리한다.
 
 ## 로컬 산출물 주의
 
 `output/s3/`는 현재 S3 버킷의 mirror로 유지한다. `0700`/`0800`은 `aws s3 sync --delete`를 사용해
 이전 실행의 assessment/converted 파일이 현재 실행 결과와 섞이지 않게 한다.
+`1300`의 Docker 복원 로그는 `output/1300_restore-dump-to-docker-postgresql.log`에 저장한다.
+plain `postgres:16`에는 RDS 전용 확장(`aws_s3`, `aws_lambda`, `plv8`, `postgis`)이 없으므로 해당 오류는
+검증용 로컬 복원에서 non-fatal로 보고, `sample` 데이터 행 수와 `1450` 비교 결과로 판단한다.
 
 ## DMS 변환 후 보정
 

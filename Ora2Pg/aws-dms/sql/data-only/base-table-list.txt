@@ -1,0 +1,11 @@
+audit_log
+customers
+departments
+employees
+employee_targets
+order_items
+order_status_dim
+orders
+products
+region_dim
+tax_rates

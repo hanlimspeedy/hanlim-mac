@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# Step 0950 — create the DMS data-only full-load-and-cdc task.
+# Loads only base table rows into the PostgreSQL-developed schema from step 0550.
+set -euo pipefail
+# shellcheck disable=SC1091
+. "$(dirname "$0")/lib.sh"
+
+sub1="$(stack_output network PublicSubnet1Id)"
+sub2="$(stack_output network PublicSubnet2Id)"
+dmssg="$(stack_output network DmsSecurityGroupId)"
+oradms="$(stack_output foundation OracleDmsSecretArn)"
+pgsec="$(stack_output foundation PgTargetSecretArn)"
+secrole="$(stack_output foundation ScSecretsRoleArn)"
+
+if stack_exists data-only-migration; then
+  task="$(stack_output data-only-migration ReplicationTaskArn 2>/dev/null || true)"
+  if [ -n "${task:-}" ] && [ "$task" != "None" ]; then
+    st="$(aws dms describe-replication-tasks --filters Name=replication-task-arn,Values="$task" \
+          --query 'ReplicationTasks[0].Status' --output text 2>/dev/null || echo none)"
+    if [ "$st" = "running" ] || [ "$st" = "starting" ]; then
+      echo ">> stopping running data-only replication task before stack update ..."
+      aws dms stop-replication-task --replication-task-arn "$task" >/dev/null
+      for _ in $(seq 1 30); do
+        st="$(aws dms describe-replication-tasks --filters Name=replication-task-arn,Values="$task" \
+              --query 'ReplicationTasks[0].Status' --output text 2>/dev/null || echo stopped)"
+        echo "   task status: $st"
+        [ "$st" = "stopped" ] && break
+        sleep 10
+      done
+    fi
+  fi
+fi
+
+deploy_stack data-only-migration "$AWSDMS_DIR/cfn/data-only-data-migration.yaml" \
+  "Subnet1Id=${sub1}" "Subnet2Id=${sub2}" \
+  "DmsSecurityGroupId=${dmssg}" \
+  "OracleService=${ORACLE_SERVICE}" \
+  "OracleDmsSecretArn=${oradms}" \
+  "PgDbName=${RDS_DB_NAME}" \
+  "PgTargetSecretArn=${pgsec}" \
+  "SecretsAccessRoleArn=${secrole}" \
+  "OracleSchema=${ORACLE_SCHEMA}"
+
+echo "--- outputs ---"
+aws cloudformation describe-stacks --stack-name "$(stack_name data-only-migration)" \
+  --query 'Stacks[0].Outputs' --output table
+echo "Next: bin/1010_test-data-only-endpoint-connections"

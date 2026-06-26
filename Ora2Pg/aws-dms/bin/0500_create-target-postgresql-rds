@@ -25,4 +25,6 @@ echo "RDS endpoint: $host"
 cur="$(aws secretsmanager get-secret-value --secret-id wrtp-pg-target --query SecretString --output text)"
 new="$(jq --arg h "$host" '. + {host:$h}' <<<"$cur")"
 aws secretsmanager put-secret-value --secret-id wrtp-pg-target --secret-string "$new" >/dev/null
-echo "OK: wrtp-pg-target secret updated with host. Next: bin/0600_create-schema-conversion-project"
+echo "OK: wrtp-pg-target secret updated with host."
+echo "Next (full conversion): bin/0600_create-schema-conversion-project"
+echo "Next (final data-only): bin/0550_apply-developed-postgresql-schema"

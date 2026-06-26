@@ -15,5 +15,5 @@ echo ">> pg_dump $user@$host/$db -> $out"
 PGPASSWORD="$pass" PGSSLMODE="require" \
   pg_dump -h "$host" -p 5432 -U "$user" -d "$db" -Fc -b -v -f "$out"
 
-echo "OK: $(ls -lh "$out" | awk '{print $5, $NF}')"
-echo "Next (optional): bin/1300_restore-dump-to-onprem-postgresql"
+echo "OK: $(stat -c '%s bytes %n' "$out")"
+echo "Next (optional): bin/1300_restore-dump-to-docker-postgresql"

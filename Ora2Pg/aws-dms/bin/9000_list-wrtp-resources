@@ -10,7 +10,7 @@ aws resourcegroupstaggingapi get-resources --tag-filters "Key=${TAG_KEY},Values=
 
 echo
 echo "=== wrtp CloudFormation stacks ==="
-for s in shared-dms-roles network foundation target-postgresql schema-conversion data-migration; do
+for s in shared-dms-roles network foundation target-postgresql schema-conversion data-migration data-only-migration; do
   name="$(stack_name "$s")"
   if stack_exists "$s"; then
     st="$(aws cloudformation describe-stacks --stack-name "$name" --query 'Stacks[0].StackStatus' --output text)"
