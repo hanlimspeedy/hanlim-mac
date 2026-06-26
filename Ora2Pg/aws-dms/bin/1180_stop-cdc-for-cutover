@@ -34,27 +34,39 @@ target_latency() {
 }
 
 echo ">> source is quiesced — waiting for CDC to drain (CDCLatencyTarget ~0) ..."
-caught=0
+caught=0; nonecnt=0
 for i in $(seq 1 30); do
   lat="$(target_latency)"
   echo "   [$i] CDCLatencyTarget=${lat}s"
-  case "$lat" in
-    None) : ;;  # no datapoint — fall through to the bounded wait below
-    *) awk "BEGIN{exit !($lat <= 2)}" && { caught=$((caught+1)); [ "$caught" -ge 2 ] && { echo "   caught up."; break; }; } || caught=0 ;;
-  esac
+  if [ "$lat" = "None" ]; then
+    nonecnt=$((nonecnt+1))
+    [ "$nonecnt" -ge 3 ] && { echo "   no CloudWatch latency datapoint; source quiesced -> proceeding."; break; }
+  else
+    nonecnt=0
+    if awk "BEGIN{exit !($lat <= 2)}"; then
+      caught=$((caught+1)); [ "$caught" -ge 2 ] && { echo "   caught up (latency<=2s)."; break; }
+    else
+      caught=0
+    fi
+  fi
   sleep 10
 done
-[ "$caught" -ge 2 ] || echo "   NOTE: did not confirm latency<=2s via CloudWatch; source is quiesced so proceeding to stop."
 
-echo ">> stopping replication task ..."
-aws dms stop-replication-task --replication-task-arn "$task" >/dev/null
-for i in $(seq 1 30); do
-  st="$(aws dms describe-replication-tasks --filters Name=replication-task-arn,Values="$task" \
-        --query 'ReplicationTasks[0].Status' --output text 2>/dev/null || echo stopped)"
-  echo "   task status: $st"
-  [ "$st" = "stopped" ] && break
-  sleep 10
-done
+st="$(aws dms describe-replication-tasks --filters Name=replication-task-arn,Values="$task" \
+      --query 'ReplicationTasks[0].Status' --output text 2>/dev/null || echo unknown)"
+if [ "$st" = "stopped" ]; then
+  echo ">> task already stopped."
+else
+  echo ">> stopping replication task ..."
+  aws dms stop-replication-task --replication-task-arn "$task" >/dev/null
+  for i in $(seq 1 30); do
+    st="$(aws dms describe-replication-tasks --filters Name=replication-task-arn,Values="$task" \
+          --query 'ReplicationTasks[0].Status' --output text 2>/dev/null || echo stopped)"
+    echo "   task status: $st"
+    [ "$st" = "stopped" ] && break
+    sleep 10
+  done
+fi
 
 rds="$(stack_output target-postgresql RdsEndpointAddress)"
 pgpw="$(secret_field wrtp-pg-target password)"

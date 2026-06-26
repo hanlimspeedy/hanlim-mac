@@ -78,6 +78,9 @@ fi
 echo ">> applying supplemental logging (online, idempotent) ..."
 "$runner" "$AWSDMS_DIR/04_supplemental_logging.sql"
 
+echo ">> seeding an archived redo log (Binary Reader CDC needs >=1 archived log to start) ..."
+"$runner" "$AWSDMS_DIR/sql/cdc-archive-current-redo-log.sql"
+
 # --- verify ---
 raw="$(probe || true)"
 line="$(printf '%s\n' "$raw" | grep -oE 'CDCSTATE:[^[:space:]]+' | head -1 || true)"

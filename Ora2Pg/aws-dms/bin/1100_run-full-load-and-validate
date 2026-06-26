@@ -81,6 +81,14 @@ if [ "$err_count" != "0" ]; then
   exit 1
 fi
 
+# Task-level failure (endpoint init / CDC stream), distinct from a per-table 'Table error'.
+if [ "$(status)" = "failed" ]; then
+  echo "ERROR: replication task is in FAILED state" >&2
+  aws dms describe-replication-tasks --filters Name=replication-task-arn,Values="$task" \
+    --query 'ReplicationTasks[0].StopReason' --output text >&2
+  exit 1
+fi
+
 echo
 if [ "$MIGRATION_TYPE" = "full-load-and-cdc" ]; then
   echo "Full load complete; the task is now in ONGOING REPLICATION (CDC). Do NOT dump yet."

@@ -56,6 +56,10 @@ Resources:
         # Oracle PDB can't use LogMiner -> Binary Reader (required for both full-load AND CDC).
         UseLogminerReader: false
         UseBFile: true
+        # FRA-based archive dest (USE_DB_RECOVERY_FILE_DEST) reports type=PUBLIC, so DMS
+        # auto-detection of a LOCAL dest finds none ("Cannot retrieve archived Redo log
+        # destination ids" -> task FATAL). Pin to LOG_ARCHIVE_DEST_1 (dest_id 1) for CDC.
+        ArchivedLogDestId: 1
       Tags: [{ Key: Project, Value: wrtp }]
 
   TargetEndpoint:
