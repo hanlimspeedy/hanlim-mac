@@ -65,9 +65,21 @@
 
 ## Final data-only 절차
 
-개발 중에는 `0600`~`0850`으로 전체 변환 스키마를 만들고 full-load+CDC를 붙여 비교한다. 실제 오픈 직전에는
-기존 PostgreSQL target을 새로 만들고, **개발 중 확정된 PostgreSQL 스키마만** repo SQL로 적용한 뒤,
-Oracle에서 **base table data만** 다시 full-load+CDC로 따라잡는다.
+이 절차의 목적은 **데이터는 Oracle 최신본으로 다시 적재**하되, **view/MV/sequence/function/trigger/index/constraint
+같은 PostgreSQL 리소스는 개발 중 확정한 PostgreSQL용 결과만 사용**하는 것이다. Oracle에서 자동 변환된 리소스는
+개발 중 참고·수정 대상일 뿐, 실제 오픈 직전 target에는 그대로 다시 덮어쓰지 않는다.
+
+운영 흐름은 두 단계로 나눈다.
+
+1. 개발용 초기 변환: `0600`~`0850`으로 Oracle schema conversion을 수행하고 full-load+CDC를 붙여 비교한다.
+   이 기간에는 데이터와 Oracle에서 변환된 리소스를 임시로 고치면서 PostgreSQL용 view/MV/sequence/function/trigger
+   등을 repo SQL로 천천히 확정한다.
+2. 오픈 직전 최종 적재: 기존 PostgreSQL target은 초기화하거나 새로 만들고, 개발 중 확정한 `sql/data-only/schema/*.sql`
+   만 먼저 적용한다. 그 뒤 DMS는 **base table data만** full-load하고, 오픈 전까지 발생한 추가 변경은 **같은 base table
+   CDC만** 따라잡는다.
+
+즉, final data-only 경로에서는 Oracle 변환 스키마를 다시 적용하지 않는다. 변경이 완벽하지 않은 Oracle 변환 객체는
+제외하고, 데이터만 가장 최근 상태로 다시 가져온다.
 
 이 경로는 `0600`~`0850`/`0900`/`1000`/`1100`/`1150`/`1180` 대신 다음 단계를 사용한다.
 
