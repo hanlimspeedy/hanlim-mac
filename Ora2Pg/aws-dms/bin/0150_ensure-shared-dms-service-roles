@@ -10,7 +10,11 @@ set -euo pipefail
 have_role() { aws iam get-role --role-name "$1" >/dev/null 2>&1; }
 
 if have_role dms-vpc-role && have_role dms-cloudwatch-logs-role; then
-  echo "OK: dms-vpc-role and dms-cloudwatch-logs-role already exist (not managed by wrtp; left as-is)."
+  if stack_exists shared-dms-roles; then
+    echo "OK: dms-vpc-role and dms-cloudwatch-logs-role already exist in $(stack_name shared-dms-roles)."
+  else
+    echo "OK: dms-vpc-role and dms-cloudwatch-logs-role already exist outside wrtp; left as-is."
+  fi
   exit 0
 fi
 

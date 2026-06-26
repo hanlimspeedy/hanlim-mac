@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# Step 1100 — start the full-load task, wait for completion, report table stats + validation.
-# Long-running: run this in the background and watch (see README). Re-runnable
-# (reload-target restarts from scratch).
+# Step 1100 — start the task, wait for FULL-LOAD completion, report table stats + validation.
+# In full-load-and-cdc mode the task then stays in ongoing replication; this step does NOT
+# wait for that (use bin/1150/1160). Long-running: run in background and watch (see README).
+# Re-runnable (reload-target restarts from scratch).
 set -euo pipefail
 # shellcheck disable=SC1091
 . "$(dirname "$0")/lib.sh"
@@ -10,6 +11,33 @@ task="$(stack_output data-migration ReplicationTaskArn)"
 
 status() { aws dms describe-replication-tasks --filters Name=replication-task-arn,Values="$task" \
            --query 'ReplicationTasks[0].Status' --output text; }
+
+MIGRATION_TYPE="${MIGRATION_TYPE:-full-load}"
+# CDC mode: if the task is already RUNNING (ongoing replication after a prior full load),
+# do NOT truncate/restart — that would wipe the target out from under a live CDC stream.
+if [ "$MIGRATION_TYPE" = "full-load-and-cdc" ] && [ "$(status)" = "running" ]; then
+  echo "Task is already RUNNING (CDC ongoing). Not truncating/restarting."
+  echo "Use bin/1150_monitor-cdc-replication and bin/1160_validate-cdc-change."
+  exit 0
+fi
+
+# Pre-load: clear the target schema so DO_NOTHING starts clean. One CASCADE pass
+# in replica mode handles FK parents/children (DMS per-table TRUNCATE can't, and
+# DROP is blocked by SC-created views). Reproducible: safe to re-run.
+rds="$(stack_output target-postgresql RdsEndpointAddress)"
+pw="$(secret_field wrtp-pg-target password)"
+tschema="$(printf '%s' "$ORACLE_SCHEMA" | tr 'A-Z' 'a-z')"
+echo ">> truncating target schema '$tschema' for a clean reload ..."
+PGPASSWORD="$pw" PGSSLMODE=require psql -h "$rds" -U "$RDS_MASTER_USER" -d "$RDS_DB_NAME" -v ON_ERROR_STOP=1 <<SQL
+SET session_replication_role=replica;
+DO \$\$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = '${tschema}' LOOP
+    EXECUTE format('TRUNCATE TABLE ${tschema}.%I CASCADE', r.tablename);
+  END LOOP;
+END \$\$;
+SQL
 
 cur="$(status)"
 echo "current task status: $cur"
@@ -20,17 +48,22 @@ if [ "$cur" = "ready" ] || [ "$cur" = "stopped" ] || [ "$cur" = "failed" ]; then
   aws dms start-replication-task --replication-task-arn "$task" --start-replication-task-type "$start_type" >/dev/null
 fi
 
-echo ">> waiting for full-load to finish ..."
-for i in $(seq 1 120); do
+echo ">> waiting for full-load (table errors reported immediately; does not wait for validation) ..."
+for i in $(seq 1 90); do
   s="$(status)"
   pct="$(aws dms describe-replication-tasks --filters Name=replication-task-arn,Values="$task" \
         --query 'ReplicationTasks[0].ReplicationTaskStats.FullLoadProgressPercent' --output text 2>/dev/null || echo 0)"
-  echo "   [$i] status=$s fullload=${pct}%"
-  case "$s" in
-    stopped) break ;;
-    failed) echo "TASK FAILED:"; aws dms describe-replication-tasks --filters Name=replication-task-arn,Values="$task" --query 'ReplicationTasks[0].LastFailureMessage' --output text; exit 1 ;;
-  esac
-  sleep 20
+  read -r comp err loading <<<"$(aws dms describe-table-statistics --replication-task-arn "$task" \
+        --query 'TableStatistics[].TableState' --output text 2>/dev/null | tr '\t' '\n' \
+        | awk '{t++} /completed/{c++} /error/{e++} END{print c+0, e+0, (t-c-e)}')"
+  errnames="$(aws dms describe-table-statistics --replication-task-arn "$task" \
+        --query "TableStatistics[?TableState=='Table error'].TableName" --output text 2>/dev/null)"
+  echo "   [$i] status=$s fullload=${pct}% completed=${comp:-0} error=${err:-0} loading=${loading:-0}${errnames:+  ERROR: $errnames}"
+  [ "$s" = "failed" ] && { echo "TASK FAILED"; break; }
+  # done as soon as full load finishes (all tables completed or error) — don't wait for validation
+  { [ "$s" != "starting" ] && [ "$pct" = "100" ] && [ "${loading:-1}" -eq 0 ]; } && { echo ">> full load finished"; break; }
+  [ "$s" = "stopped" ] && break
+  sleep 15
 done
 
 echo "--- table statistics ---"
@@ -38,6 +71,22 @@ aws dms describe-table-statistics --replication-task-arn "$task" \
   --query 'TableStatistics[].{Schema:SchemaName,Table:TableName,Rows:FullLoadRows,State:TableState,Validation:ValidationState}' \
   --output table
 
+err_count="$(aws dms describe-table-statistics --replication-task-arn "$task" \
+  --query "length(TableStatistics[?TableState=='Table error'])" --output text)"
+if [ "$err_count" != "0" ]; then
+  echo "ERROR: full-load finished with $err_count table error(s)" >&2
+  aws dms describe-table-statistics --replication-task-arn "$task" \
+    --query "TableStatistics[?TableState=='Table error'].{Schema:SchemaName,Table:TableName,Rows:FullLoadRows,State:TableState}" \
+    --output table >&2
+  exit 1
+fi
+
 echo
-echo "NOTE: sequences are not auto-advanced by full-load — reset NEXTVAL on the target after load if needed."
-echo "OK: full-load done. Next: bin/1200_download-postgresql-dump"
+if [ "$MIGRATION_TYPE" = "full-load-and-cdc" ]; then
+  echo "Full load complete; the task is now in ONGOING REPLICATION (CDC). Do NOT dump yet."
+  echo "Next: bin/1150_monitor-cdc-replication -> bin/1160_validate-cdc-change, then"
+  echo "      bin/1180_stop-cdc-for-cutover (stops CDC + resets sequences) before bin/1200."
+else
+  echo "NOTE: sequences are not auto-advanced by full-load — reset NEXTVAL on the target after load if needed."
+  echo "OK: full-load done. Next: bin/1200_download-postgresql-dump"
+fi

@@ -11,15 +11,34 @@ oradms="$(stack_output foundation OracleDmsSecretArn)"
 pgsec="$(stack_output foundation PgTargetSecretArn)"
 secrole="$(stack_output foundation ScSecretsRoleArn)"   # reused for endpoint secret access
 
+# Changing MigrationType replaces the task; CFN can't replace a RUNNING task — stop it first.
+if stack_exists data-migration; then
+  task="$(stack_output data-migration ReplicationTaskArn 2>/dev/null || true)"
+  if [ -n "${task:-}" ] && [ "$task" != "None" ]; then
+    st="$(aws dms describe-replication-tasks --filters Name=replication-task-arn,Values="$task" \
+          --query 'ReplicationTasks[0].Status' --output text 2>/dev/null || echo none)"
+    if [ "$st" = "running" ] || [ "$st" = "starting" ]; then
+      echo ">> stopping running replication task before stack update ..."
+      aws dms stop-replication-task --replication-task-arn "$task" >/dev/null
+      for _ in $(seq 1 30); do
+        st="$(aws dms describe-replication-tasks --filters Name=replication-task-arn,Values="$task" \
+              --query 'ReplicationTasks[0].Status' --output text 2>/dev/null || echo stopped)"
+        echo "   task status: $st"; [ "$st" = "stopped" ] && break; sleep 10
+      done
+    fi
+  fi
+fi
+
 deploy_stack data-migration "$AWSDMS_DIR/cfn/data-migration.yaml" \
-  "SubnetIds=${sub1}\,${sub2}" \
+  "Subnet1Id=${sub1}" "Subnet2Id=${sub2}" \
   "DmsSecurityGroupId=${dmssg}" \
   "OracleService=${ORACLE_SERVICE}" \
   "OracleDmsSecretArn=${oradms}" \
   "PgDbName=${RDS_DB_NAME}" \
   "PgTargetSecretArn=${pgsec}" \
   "SecretsAccessRoleArn=${secrole}" \
-  "OracleSchema=${ORACLE_SCHEMA}"
+  "OracleSchema=${ORACLE_SCHEMA}" \
+  "MigrationType=${MIGRATION_TYPE:-full-load}"
 
 echo "--- outputs ---"
 aws cloudformation describe-stacks --stack-name "$(stack_name data-migration)" \

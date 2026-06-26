@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Step 0120 — grant Binary Reader CDC privileges to the Oracle source account (C##DMS).
+# CDC only: self-skips when MIGRATION_TYPE != full-load-and-cdc. Idempotent (GRANTs).
+# Applies 03_grant_binary_reader_cdc.sql on the Oracle host via the shared
+# bin/run-remote-sqlplus-sysdba (ssh root@ORACLE_HOST -> sqlplus / as sysdba).
+set -euo pipefail
+# shellcheck disable=SC1091
+. "$(dirname "$0")/lib.sh"
+
+if [ "${MIGRATION_TYPE:-full-load}" != "full-load-and-cdc" ]; then
+  echo "MIGRATION_TYPE='${MIGRATION_TYPE:-full-load}' — CDC grants not needed. Skipping."
+  exit 0
+fi
+
+REPO_ROOT="$(cd "$AWSDMS_DIR/.." && pwd)"
+runner="$REPO_ROOT/bin/run-remote-sqlplus-sysdba"
+
+echo ">> applying Binary Reader CDC grants to ${ORACLE_DMS_USER} on the Oracle host ..."
+"$runner" "$AWSDMS_DIR/03_grant_binary_reader_cdc.sql"
+echo "OK: CDC privileges granted. Next: bin/0140_enable-oracle-cdc-redo"

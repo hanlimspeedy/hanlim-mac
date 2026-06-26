@@ -63,3 +63,39 @@ stack_exists() { aws cloudformation describe-stacks --stack-name "$(stack_name "
 
 # Default S3 bucket name (deterministic).
 default_bucket() { echo "${S3_BUCKET:-${WRTP_PREFIX}-sc-$(aws_account_id)-${AWS_DEFAULT_REGION}}"; }
+
+# DMS Schema Conversion selection rule for the SOURCE Oracle schema.
+# Must include server-name + database-name + schema-name, rule-action "explicit"
+# (a bare schema-name locator is rejected with "locator 'schema-name' does not exist").
+sc_source_rule() {
+  jq -n --arg srv "$ORACLE_PUBLIC_IP" --arg s "$ORACLE_SCHEMA" \
+    '{rules:[{"rule-type":"selection","rule-id":"1","rule-name":"1","object-locator":{"server-name":$srv,"schema-name":$s},"rule-action":"explicit"}]}'
+}
+
+# DMS Schema Conversion selection rule for the TARGET PostgreSQL schema.
+#   sc_target_rule <target-server> <target-schema>
+sc_target_rule() {
+  jq -n --arg srv "$1" --arg s "$2" \
+    '{rules:[{"rule-type":"selection","rule-id":"1","rule-name":"1","object-locator":{"server-name":$srv,"schema-name":$s},"rule-action":"explicit"}]}'
+}
+
+# Latest status of a DMS Schema Conversion async request type.
+#   sc_status <describe-subcommand> <migration-project>
+sc_status() { aws dms "$1" --migration-project-identifier "$2" --query 'Requests[0].Status' --output text 2>/dev/null; }
+
+# Poll a DMS Schema Conversion async request until terminal. No blind sleeps.
+#   wait_sc <describe-subcommand> <migration-project> [timeout-secs]
+# returns 0 on SUCCESS, 1 on FAILURE, 2 on timeout.
+wait_sc() {
+  local sub="$1" proj="$2" timeout="${3:-1200}" waited=0 st
+  while :; do
+    st="$(sc_status "$sub" "$proj")"
+    echo "   [$sub] ${st:-?} (${waited}s)"
+    case "$st" in
+      SUCCESS) return 0 ;;
+      FAILURE|FAILED|ERROR) return 1 ;;
+    esac
+    [ "$waited" -ge "$timeout" ] && return 2
+    sleep 15; waited=$((waited + 15))
+  done
+}

@@ -1,31 +1,43 @@
 #!/usr/bin/env bash
 # Step 0800 — convert the Oracle schema and apply it to the RDS target.
-# Converts the metadata model, then exports/applies it to the target data provider.
-# Async like 0700; re-run if an op is still in progress.
+# Async DMS Schema Conversion ops: each step starts, then polls its status
+# (SUCCESS/FAILURE) — no blind sleeps, fails fast, and skips steps already SUCCESS.
+# Requires 0700 (source metadata model imported) to have run first.
 set -euo pipefail
 # shellcheck disable=SC1091
 . "$(dirname "$0")/lib.sh"
 
 PROJ="wrtp-migration-project"
-RULES="$(jq -n --arg s "$ORACLE_SCHEMA" \
-  '{rules:[{"rule-type":"selection","rule-id":"1","rule-name":"sel","object-locator":{"schema-name":$s},"rule-action":"include"}]}')"
+SRULE="$(sc_source_rule)"
+rds="$(stack_output target-postgresql RdsEndpointAddress)"
+TARGET_SCHEMA="$(printf '%s' "$ORACLE_SCHEMA" | tr 'A-Z' 'a-z')"   # Oracle SAMPLE -> PostgreSQL sample
+TRULE="$(sc_target_rule "$rds" "$TARGET_SCHEMA")"
 bucket="$(stack_output foundation S3BucketName)"
 
-echo ">> converting metadata model ..."
-aws dms start-metadata-model-conversion --migration-project-identifier "$PROJ" --selection-rules "$RULES" || true
-sleep 30
+# 1) Convert the metadata model (source rule). Skip if already SUCCESS.
+if [ "$(sc_status describe-metadata-model-conversions "$PROJ")" = "SUCCESS" ]; then
+  echo ">> conversion already done (SUCCESS) — skipping"
+else
+  echo ">> converting metadata model ..."
+  aws dms start-metadata-model-conversion --migration-project-identifier "$PROJ" --selection-rules "$SRULE"
+  wait_sc describe-metadata-model-conversions "$PROJ" || { echo "ERROR: conversion failed/timeout"; exit 1; }
+fi
 
-echo ">> exporting converted SQL to S3 (for the record) ..."
+# 2) Export the converted SQL to S3 for the record (best-effort, fire-and-forget).
+echo ">> exporting converted SQL to S3 (record) ..."
 aws dms start-metadata-model-export-as-script --migration-project-identifier "$PROJ" \
-  --selection-rules "$RULES" --origin SOURCE --file-name "wrtp-converted" || true
-sleep 10
+  --selection-rules "$TRULE" --origin TARGET --file-name wrtp-converted || true
 
-echo ">> applying converted schema to the target (RDS) ..."
-aws dms start-metadata-model-export-to-target --migration-project-identifier "$PROJ" \
-  --selection-rules "$RULES" --overwrite-extension-pack DoNotOverwrite || \
-  echo "   (apply not ready / needs re-run — check conversion status, then re-run 0800)"
+# 3) Apply the converted schema to the RDS target (installs the extension pack). Skip if SUCCESS.
+if [ "$(sc_status describe-metadata-model-exports-to-target "$PROJ")" = "SUCCESS" ]; then
+  echo ">> schema already applied to target (SUCCESS) — skipping"
+else
+  echo ">> applying converted schema to target RDS (schema=$TARGET_SCHEMA) ..."
+  aws dms start-metadata-model-export-to-target --migration-project-identifier "$PROJ" \
+    --selection-rules "$TRULE" --overwrite-extension-pack
+  wait_sc describe-metadata-model-exports-to-target "$PROJ" || { echo "ERROR: apply-to-target failed/timeout"; exit 1; }
+fi
 
-echo ">> syncing S3 (converted SQL) -> output/s3 ..."
-mkdir -p "$OUTPUT_DIR/s3"
-aws s3 sync "s3://${bucket}" "$OUTPUT_DIR/s3" || true
-echo "OK: schema applied to target (verify with psql \\dt). Next: bin/0900_create-data-migration-task"
+echo ">> syncing S3 -> output/s3 ..."
+mkdir -p "$OUTPUT_DIR/s3"; aws s3 sync "s3://${bucket}" "$OUTPUT_DIR/s3" --delete || true
+echo "OK: schema applied to target schema '$TARGET_SCHEMA' on RDS. Next: bin/0900_create-data-migration-task"

@@ -2,8 +2,8 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: wrtp target - temporary RDS for PostgreSQL (deleted at teardown after download).
 
 Parameters:
-  SubnetIds:
-    Type: List<AWS::EC2::Subnet::Id>
+  Subnet1Id: { Type: AWS::EC2::Subnet::Id }
+  Subnet2Id: { Type: AWS::EC2::Subnet::Id }
   RdsSecurityGroupId:
     Type: AWS::EC2::SecurityGroup::Id
   EngineVersion: { Type: String, Default: '16' }
@@ -21,7 +21,7 @@ Resources:
     Type: AWS::RDS::DBSubnetGroup
     Properties:
       DBSubnetGroupDescription: wrtp pg subnet group
-      SubnetIds: !Ref SubnetIds
+      SubnetIds: [!Ref Subnet1Id, !Ref Subnet2Id]
       Tags: [{ Key: Project, Value: wrtp }]
 
   PgInstance:

@@ -10,7 +10,7 @@ sub2="$(stack_output network PublicSubnet2Id)"
 rdssg="$(stack_output network RdsSecurityGroupId)"
 
 deploy_stack target-postgresql "$AWSDMS_DIR/cfn/target-postgresql.yaml" \
-  "SubnetIds=${sub1}\,${sub2}" \
+  "Subnet1Id=${sub1}" "Subnet2Id=${sub2}" \
   "RdsSecurityGroupId=${rdssg}" \
   "EngineVersion=${RDS_ENGINE_VERSION}" \
   "InstanceClass=${RDS_INSTANCE_CLASS}" \

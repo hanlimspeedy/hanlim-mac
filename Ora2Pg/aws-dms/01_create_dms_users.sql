@@ -11,7 +11,8 @@
 --
 -- 비고:
 --   - Full Load + Schema Conversion 은 NOARCHIVELOG 에서도 동작.
---   - CDC(LogMiner)는 ARCHIVELOG + 보충로깅 필요(02_enable_cdc.sql, 재시작 동반).
+--   - CDC 는 Binary Reader(PDB 는 LogMiner 불가) + ARCHIVELOG + 보충로깅 필요.
+--     추가 권한: 03_grant_binary_reader_cdc.sql / 로깅: 04_supplemental_logging.sql (bin/0120·0140).
 --
 -- 비밀번호는 파일에 저장하지 않는다. 실행 시 인자(위치변수)로 전달:
 --   sqlplus / as sysdba @01_create_dms_users.sql <C##DMS_SC_PW> <C##DMS_PW>
@@ -93,12 +94,10 @@ GRANT SELECT ON SYS.ARGUMENT$          TO C##DMS CONTAINER=ALL;
 -- 데이터 검증(선택)
 GRANT EXECUTE ON SYS.DBMS_CRYPTO TO C##DMS CONTAINER=ALL;
 
--- LogMiner / CDC (권한만 미리 부여; 실제 CDC 는 ARCHIVELOG 필요)
+-- LogMiner 권한(있어도 무해; PDB CDC 는 Binary Reader 사용이라 실제로는 불필요).
 GRANT EXECUTE ON DBMS_LOGMNR TO C##DMS CONTAINER=ALL;
 GRANT LOGMINING              TO C##DMS CONTAINER=ALL;
 
--- Binary Reader 사용 시(선택, 광범위 권한이라 기본 비활성):
--- GRANT SELECT ON SYS.DBA_DIRECTORIES TO C##DMS CONTAINER=ALL;
--- GRANT CREATE ANY DIRECTORY TO C##DMS CONTAINER=ALL;
+-- Binary Reader CDC 추가 권한은 03_grant_binary_reader_cdc.sql 에서 부여(bin/0120).
 
 PROMPT >> 01_create_dms_users.sql 완료: C##DMS_SC / C##DMS 생성 및 권한 부여

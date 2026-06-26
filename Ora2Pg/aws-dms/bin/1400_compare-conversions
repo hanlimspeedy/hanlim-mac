@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# Step 1400 — compare the two conversions of the same Oracle schema, side by side:
+#   - Ora2Pg result : native on-prem PostgreSQL  (db sample_pg, from the Ora2Pg project)
+#   - AWS DMS result: Docker container            (db appdb_from_aws, restored by step 1300)
+# Compares object counts and object-name differences (no AWS access needed).
+set -euo pipefail
+# shellcheck disable=SC1091
+. "$(dirname "$0")/lib.sh"
+
+SCHEMA="${COMPARE_SCHEMA:-sample}"
+ORA2PG_DB="${COMPARE_ORA2PG_DB:-sample_pg}"            # native on-prem (Ora2Pg)
+AWS_CONT="${VERIFY_CONTAINER:-wrtp-verify-pg}"
+AWS_PORT="${VERIFY_PORT:-5434}"
+AWS_PW="${VERIFY_PASSWORD:-wrtpVerify1}"
+AWS_DB="${ONPREM_RESTORE_DB:-appdb_from_aws}"
+REPORT="$OUTPUT_DIR/CONVERSION_COMPARISON.txt"
+
+ora2pg() { sudo -u postgres psql -d "$ORA2PG_DB" -tAc "$1" 2>/dev/null | sort; }
+awsdms() { PGPASSWORD="$AWS_PW" psql -h 127.0.0.1 -p "$AWS_PORT" -U postgres -d "$AWS_DB" -tAc "$1" 2>/dev/null | sort; }
+
+# preflight: both targets reachable
+ora2pg "select 1" >/dev/null || { echo "ERROR: native $ORA2PG_DB not reachable (Ora2Pg result)"; exit 1; }
+awsdms "select 1" >/dev/null || { echo "ERROR: docker $AWS_CONT/$AWS_DB not reachable — run bin/1300 first"; exit 1; }
+
+{
+  echo "# 변환 결과 비교: Ora2Pg(native $ORA2PG_DB) vs AWS DMS(docker $AWS_DB), schema=$SCHEMA"
+  echo
+
+  echo "## 1. 객체 수"
+  printf "%-16s %10s %10s\n" "object" "Ora2Pg" "AWS-DMS"
+  while IFS='|' read -r lbl sql; do
+    printf "%-16s %10s %10s\n" "$lbl" "$(ora2pg "$sql")" "$(awsdms "$sql")"
+  done <<EOF
+tables|select count(*) from information_schema.tables where table_schema='$SCHEMA' and table_type='BASE TABLE'
+views|select count(*) from information_schema.views where table_schema='$SCHEMA'
+matviews|select count(*) from pg_matviews where schemaname='$SCHEMA'
+sequences|select count(*) from information_schema.sequences where sequence_schema='$SCHEMA'
+routines|select count(*) from information_schema.routines where routine_schema='$SCHEMA'
+triggers|select count(distinct trigger_name) from information_schema.triggers where trigger_schema='$SCHEMA'
+indexes|select count(*) from pg_indexes where schemaname='$SCHEMA'
+EOF
+
+  echo
+  echo "## 2. 객체 이름 차이  ([Ora2Pg만] / [AWS-DMS만], 공통은 생략)"
+  for spec in \
+    "TABLES|select table_name from information_schema.tables where table_schema='$SCHEMA' and table_type='BASE TABLE'" \
+    "VIEWS|select table_name from information_schema.views where table_schema='$SCHEMA'" \
+    "ROUTINES|select routine_name from information_schema.routines where routine_schema='$SCHEMA'" \
+    "TRIGGERS|select distinct trigger_name from information_schema.triggers where trigger_schema='$SCHEMA'" ; do
+    lbl="${spec%%|*}"; sql="${spec#*|}"
+    echo "── $lbl ──"
+    diff <(ora2pg "$sql") <(awsdms "$sql") | grep -E '^[<>]' \
+      | sed 's/^< /  [Ora2Pg만]  /; s/^> /  [AWS-DMS만] /' || echo "  (동일)"
+  done
+} | tee "$REPORT"
+echo
+echo "saved: $REPORT"

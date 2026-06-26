@@ -4,7 +4,8 @@ Description: >
   and migration project (S3 + Secrets Manager wired).
 
 Parameters:
-  SubnetIds: { Type: List<AWS::EC2::Subnet::Id> }
+  Subnet1Id: { Type: AWS::EC2::Subnet::Id }
+  Subnet2Id: { Type: AWS::EC2::Subnet::Id }
   DmsSecurityGroupId: { Type: AWS::EC2::SecurityGroup::Id }
   OracleServerName: { Type: String }
   OraclePort: { Type: Number, Default: 1521 }
@@ -24,7 +25,7 @@ Resources:
     Properties:
       ReplicationSubnetGroupIdentifier: wrtp-sc-subnet
       ReplicationSubnetGroupDescription: wrtp schema conversion subnet group
-      SubnetIds: !Ref SubnetIds
+      SubnetIds: [!Ref Subnet1Id, !Ref Subnet2Id]
       Tags: [{ Key: Project, Value: wrtp }]
 
   InstanceProfile:
@@ -66,16 +67,17 @@ Resources:
 
   MigrationProject:
     Type: AWS::DMS::MigrationProject
+    DependsOn: [OracleDataProvider, PgDataProvider, InstanceProfile]
     Properties:
       MigrationProjectName: wrtp-migration-project
       Description: wrtp Oracle to PostgreSQL schema conversion
-      InstanceProfileIdentifier: !GetAtt InstanceProfile.InstanceProfileArn
+      InstanceProfileIdentifier: !Ref InstanceProfile
       SourceDataProviderDescriptors:
-        - DataProviderArn: !GetAtt OracleDataProvider.DataProviderArn
+        - DataProviderIdentifier: !Ref OracleDataProvider
           SecretsManagerSecretId: !Ref OracleScSecretArn
           SecretsManagerAccessRoleArn: !Ref ScSecretsRoleArn
       TargetDataProviderDescriptors:
-        - DataProviderArn: !GetAtt PgDataProvider.DataProviderArn
+        - DataProviderIdentifier: !Ref PgDataProvider
           SecretsManagerSecretId: !Ref PgTargetSecretArn
           SecretsManagerAccessRoleArn: !Ref ScSecretsRoleArn
       SchemaConversionApplicationAttributes:

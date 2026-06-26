@@ -1,0 +1,362 @@
+#!/usr/bin/env bash
+# Step 1450 — compare Oracle source against both PostgreSQL conversion results.
+# Inputs:
+#   - Oracle source via .oracle.env (ORA_USER/ORA_PASSWORD/ORA_SCHEMA)
+#   - Ora2Pg native PostgreSQL result (COMPARE_ORA2PG_DB or PG_DB)
+#   - AWS DMS local restored PostgreSQL result from step 1300
+# Output:
+#   - output/ORACLE_SOURCE_CONVERSION_COMPARISON.md
+set -euo pipefail
+
+AWSDMS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PROJECT_DIR="$(cd "$AWSDMS_DIR/.." && pwd)"
+# shellcheck disable=SC1091
+. "$AWSDMS_DIR/bin/lib.sh"
+# shellcheck disable=SC1091
+. "$PROJECT_DIR/bin/env.sh"
+
+: "${ORA_USER:?Set ORA_USER in .oracle.env}"
+: "${ORA_PASSWORD:?Set ORA_PASSWORD in .oracle.env}"
+: "${ORA_SCHEMA:?Set ORA_SCHEMA in .oracle.env}"
+
+SCHEMA="${COMPARE_SCHEMA:-$(printf '%s' "$ORA_SCHEMA" | tr 'A-Z' 'a-z')}"
+ORA2PG_DB="${COMPARE_ORA2PG_DB:-${PG_DB:-sample_pg}}"
+AWS_PORT="${VERIFY_PORT:-5434}"
+AWS_PW="${VERIFY_PASSWORD:-wrtpVerify1}"
+AWS_DB="${ONPREM_RESTORE_DB:-appdb_from_aws}"
+AWS_CONT="${VERIFY_CONTAINER:-wrtp-verify-pg}"
+
+RUN_DIR="$OUTPUT_DIR/1450"
+REPORT="$OUTPUT_DIR/ORACLE_SOURCE_CONVERSION_COMPARISON.md"
+SMOKE_SQL="$AWSDMS_DIR/sql/1450_postgresql-routine-smoke-tests.sql"
+mkdir -p "$RUN_DIR"
+
+qident() {
+  local s="${1//\"/\"\"}"
+  printf '"%s"' "$s"
+}
+
+oracle_sql() {
+  local sql="$1"
+  sqlplus -L -s "${ORA_USER}/${ORA_PASSWORD}@//${ORACLE_HOST}:${ORACLE_PORT}/${ORACLE_SERVICE}" <<SQL
+set heading off feedback off pages 50000 lines 32767 trimspool on verify off echo off tab off
+${sql}
+exit
+SQL
+}
+
+oracle_scalar() {
+  oracle_sql "$1" | awk 'NF { gsub(/^[ \t]+|[ \t]+$/, ""); print; exit }'
+}
+
+ora2pg_sql() {
+  sudo -u postgres psql -d "$ORA2PG_DB" -tAc "$1"
+}
+
+aws_sql() {
+  PGPASSWORD="$AWS_PW" psql -h 127.0.0.1 -p "$AWS_PORT" -U postgres -d "$AWS_DB" -tAc "$1"
+}
+
+write_oracle_list() {
+  local file="$1" sql="$2"
+  oracle_sql "$sql" | awk 'NF { gsub(/^[ \t]+|[ \t]+$/, ""); print }' | sort -u > "$file"
+}
+
+write_pg_list() {
+  local target="$1" file="$2" sql="$3"
+  if [ "$target" = "ora2pg" ]; then
+    ora2pg_sql "$sql" | awk 'NF { print }' | sort -u > "$file"
+  else
+    aws_sql "$sql" | awk 'NF { print }' | sort -u > "$file"
+  fi
+}
+
+line_count() {
+  awk 'END { print NR + 0 }' "$1"
+}
+
+relation_kind() {
+  local target="$1" name="$2" sql
+  sql="select c.relkind from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='${SCHEMA}' and c.relname='${name}' limit 1"
+  if [ "$target" = "ora2pg" ]; then ora2pg_sql "$sql"; else aws_sql "$sql"; fi
+}
+
+pg_count_or_error() {
+  local target="$1" rel="$2" sql out
+  sql="select count(*) from $(qident "$SCHEMA").$(qident "$rel")"
+  if [ "$target" = "ora2pg" ]; then
+    out="$(ora2pg_sql "$sql" 2>&1)" || { printf 'ERROR: %s' "$out"; return 0; }
+  else
+    out="$(aws_sql "$sql" 2>&1)" || { printf 'ERROR: %s' "$out"; return 0; }
+  fi
+  printf '%s' "$out" | awk 'NF { print; exit }'
+}
+
+oracle_struct_metric() {
+  case "$1" in
+    columns)
+      oracle_scalar "select count(*) from all_tab_columns where owner=upper('${ORA_SCHEMA}') and table_name in (select table_name from all_tables where owner=upper('${ORA_SCHEMA}') and temporary='N' and table_name not like 'MLOG\$%' and table_name not in (select mview_name from all_mviews where owner=upper('${ORA_SCHEMA}')));"
+      ;;
+    primary_keys)
+      oracle_scalar "select count(*) from all_constraints where owner=upper('${ORA_SCHEMA}') and constraint_type='P' and table_name in (select table_name from all_tables where owner=upper('${ORA_SCHEMA}') and temporary='N' and table_name not like 'MLOG\$%' and table_name not in (select mview_name from all_mviews where owner=upper('${ORA_SCHEMA}')));"
+      ;;
+    foreign_keys)
+      oracle_scalar "select count(*) from all_constraints where owner=upper('${ORA_SCHEMA}') and constraint_type='R' and table_name in (select table_name from all_tables where owner=upper('${ORA_SCHEMA}') and temporary='N' and table_name not like 'MLOG\$%' and table_name not in (select mview_name from all_mviews where owner=upper('${ORA_SCHEMA}')));"
+      ;;
+    unique_constraints)
+      oracle_scalar "select count(*) from all_constraints where owner=upper('${ORA_SCHEMA}') and constraint_type='U' and table_name in (select table_name from all_tables where owner=upper('${ORA_SCHEMA}') and temporary='N' and table_name not like 'MLOG\$%' and table_name not in (select mview_name from all_mviews where owner=upper('${ORA_SCHEMA}')));"
+      ;;
+    check_constraints)
+      oracle_scalar "select count(*) from all_constraints where owner=upper('${ORA_SCHEMA}') and constraint_type='C' and generated='USER NAME' and table_name in (select table_name from all_tables where owner=upper('${ORA_SCHEMA}') and temporary='N' and table_name not like 'MLOG\$%' and table_name not in (select mview_name from all_mviews where owner=upper('${ORA_SCHEMA}')));"
+      ;;
+    not_null_columns)
+      oracle_scalar "select count(*) from all_tab_columns where owner=upper('${ORA_SCHEMA}') and nullable='N' and table_name in (select table_name from all_tables where owner=upper('${ORA_SCHEMA}') and temporary='N' and table_name not like 'MLOG\$%' and table_name not in (select mview_name from all_mviews where owner=upper('${ORA_SCHEMA}')));"
+      ;;
+  esac
+}
+
+pg_struct_metric() {
+  local target="$1" metric="$2" sql
+  case "$metric" in
+    columns)
+      sql="select count(*) from information_schema.columns col join pg_class c on c.relname=col.table_name join pg_namespace n on n.oid=c.relnamespace and n.nspname=col.table_schema where col.table_schema='${SCHEMA}' and c.relkind in ('r','p') and not c.relispartition"
+      ;;
+    primary_keys)
+      sql="select count(*) from pg_constraint con join pg_class c on c.oid=con.conrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname='${SCHEMA}' and c.relkind in ('r','p') and not c.relispartition and con.contype='p'"
+      ;;
+    foreign_keys)
+      sql="select count(*) from pg_constraint con join pg_class c on c.oid=con.conrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname='${SCHEMA}' and c.relkind in ('r','p') and not c.relispartition and con.contype='f'"
+      ;;
+    unique_constraints)
+      sql="select count(*) from pg_constraint con join pg_class c on c.oid=con.conrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname='${SCHEMA}' and c.relkind in ('r','p') and not c.relispartition and con.contype='u'"
+      ;;
+    check_constraints)
+      sql="select count(*) from pg_constraint con join pg_class c on c.oid=con.conrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname='${SCHEMA}' and c.relkind in ('r','p') and not c.relispartition and con.contype='c'"
+      ;;
+    not_null_columns)
+      sql="select count(*) from pg_attribute a join pg_class c on c.oid=a.attrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname='${SCHEMA}' and c.relkind in ('r','p') and not c.relispartition and a.attnum > 0 and not a.attisdropped and a.attnotnull"
+      ;;
+  esac
+  if [ "$target" = "ora2pg" ]; then ora2pg_sql "$sql"; else aws_sql "$sql"; fi
+}
+
+oracle_count_or_error() {
+  local rel="$1" out
+  out="$(oracle_scalar "select count(*) from ${ORA_SCHEMA}.${rel};" 2>&1)" || { printf 'ERROR: %s' "$out"; return 0; }
+  printf '%s' "$out"
+}
+
+diff_summary() {
+  local label="$1" oracle_file="$2" ora2pg_file="$3" aws_file="$4"
+  {
+    echo "### $label"
+    echo
+    echo "| 기준 | 누락/추가 | 이름 |"
+    echo "|---|---|---|"
+    comm -23 "$oracle_file" "$ora2pg_file" | sed 's/.*/| Oracle -> Ora2Pg | missing | `&` |/'
+    comm -13 "$oracle_file" "$ora2pg_file" | sed 's/.*/| Ora2Pg only | extra | `&` |/'
+    comm -23 "$oracle_file" "$aws_file" | sed 's/.*/| Oracle -> AWS DMS | missing | `&` |/'
+    comm -13 "$oracle_file" "$aws_file" | sed 's/.*/| AWS DMS only | extra | `&` |/'
+  } | awk '
+    BEGIN { rows=0 }
+    /^|/ { rows++ }
+    { print }
+    END { if (rows == 2) print "| - | same | - |" }
+  '
+}
+
+smoke_views() {
+  local target="$1"
+  local out="$RUN_DIR/${target}_view_smoke.tsv"
+  local list="$RUN_DIR/${target}_views_for_smoke.txt"
+  local rel sql result
+  : > "$out"
+  if [ "$target" = "ora2pg" ]; then
+    ora2pg_sql "select table_name from information_schema.views where table_schema='${SCHEMA}' union select matviewname from pg_matviews where schemaname='${SCHEMA}' order by 1" > "$list"
+  else
+    aws_sql "select table_name from information_schema.views where table_schema='${SCHEMA}' union select matviewname from pg_matviews where schemaname='${SCHEMA}' order by 1" > "$list"
+  fi
+  while IFS= read -r rel; do
+    [ -n "$rel" ] || continue
+    sql="select 1 from $(qident "$SCHEMA").$(qident "$rel") limit 1"
+    if [ "$target" = "ora2pg" ]; then
+      result="$(ora2pg_sql "$sql" 2>&1 >/dev/null)" && printf '%s\tOK\t\n' "$rel" >> "$out" || printf '%s\tFAIL\t%s\n' "$rel" "$(printf '%s' "$result" | tr '\n' ' ')" >> "$out"
+    else
+      result="$(aws_sql "$sql" 2>&1 >/dev/null)" && printf '%s\tOK\t\n' "$rel" >> "$out" || printf '%s\tFAIL\t%s\n' "$rel" "$(printf '%s' "$result" | tr '\n' ' ')" >> "$out"
+    fi
+  done < "$list"
+}
+
+run_routine_smoke() {
+  local target="$1"
+  local log="$RUN_DIR/${target}_routine_smoke.log"
+  if [ "$target" = "ora2pg" ]; then
+    sudo -u postgres psql -d "$ORA2PG_DB" -v schema="$SCHEMA" -v ora2pg=true -v awsdms=false < "$SMOKE_SQL" > "$log" 2>&1 || true
+  else
+    PGPASSWORD="$AWS_PW" psql -h 127.0.0.1 -p "$AWS_PORT" -U postgres -d "$AWS_DB" -v schema="$SCHEMA" -v ora2pg=false -v awsdms=true < "$SMOKE_SQL" > "$log" 2>&1 || true
+  fi
+}
+
+ora2pg_sql "select 1" >/dev/null || { echo "ERROR: Ora2Pg database not reachable: $ORA2PG_DB" >&2; exit 1; }
+aws_sql "select 1" >/dev/null || { echo "ERROR: AWS DMS restore database not reachable: $AWS_CONT/$AWS_DB on port $AWS_PORT" >&2; exit 1; }
+oracle_scalar "select 1 from dual;" >/dev/null || { echo "ERROR: Oracle source not reachable" >&2; exit 1; }
+
+echo ">> collecting Oracle source metadata ..."
+write_oracle_list "$RUN_DIR/oracle_tables.txt" "select lower(table_name) from all_tables where owner=upper('${ORA_SCHEMA}') and temporary='N' and table_name not like 'MLOG\$%' and table_name not in (select mview_name from all_mviews where owner=upper('${ORA_SCHEMA}')) order by 1;"
+write_oracle_list "$RUN_DIR/oracle_views.txt" "select lower(view_name) from all_views where owner=upper('${ORA_SCHEMA}') order by 1;"
+write_oracle_list "$RUN_DIR/oracle_mviews.txt" "select lower(mview_name) from all_mviews where owner=upper('${ORA_SCHEMA}') order by 1;"
+write_oracle_list "$RUN_DIR/oracle_sequences.txt" "select lower(sequence_name) from all_sequences where sequence_owner=upper('${ORA_SCHEMA}') order by 1;"
+write_oracle_list "$RUN_DIR/oracle_routines.txt" "select lower(object_name) from all_objects where owner=upper('${ORA_SCHEMA}') and object_type in ('FUNCTION','PROCEDURE','PACKAGE') order by 1;"
+write_oracle_list "$RUN_DIR/oracle_triggers.txt" "select lower(trigger_name) from all_triggers where owner=upper('${ORA_SCHEMA}') order by 1;"
+write_oracle_list "$RUN_DIR/oracle_indexes.txt" "select lower(index_name) from all_indexes where owner=upper('${ORA_SCHEMA}') order by 1;"
+write_oracle_list "$RUN_DIR/oracle_synonyms.txt" "select lower(synonym_name) from all_synonyms where owner=upper('${ORA_SCHEMA}') order by 1;"
+
+echo ">> collecting Ora2Pg metadata ..."
+write_pg_list ora2pg "$RUN_DIR/ora2pg_tables.txt" "select c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='${SCHEMA}' and c.relkind in ('r','p') and not c.relispartition order by 1;"
+write_pg_list ora2pg "$RUN_DIR/ora2pg_views.txt" "select table_name from information_schema.views where table_schema='${SCHEMA}' order by 1;"
+write_pg_list ora2pg "$RUN_DIR/ora2pg_mviews.txt" "select matviewname from pg_matviews where schemaname='${SCHEMA}' order by 1;"
+write_pg_list ora2pg "$RUN_DIR/ora2pg_sequences.txt" "select c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='${SCHEMA}' and c.relkind='S' order by 1;"
+write_pg_list ora2pg "$RUN_DIR/ora2pg_routines.txt" "select p.proname from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='${SCHEMA}' and p.prokind in ('f','p') order by 1;"
+write_pg_list ora2pg "$RUN_DIR/ora2pg_triggers.txt" "select t.tgname from pg_trigger t join pg_class c on c.oid=t.tgrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname='${SCHEMA}' and not t.tgisinternal order by 1;"
+write_pg_list ora2pg "$RUN_DIR/ora2pg_indexes.txt" "select indexname from pg_indexes where schemaname='${SCHEMA}' order by 1;"
+write_pg_list ora2pg "$RUN_DIR/ora2pg_synonyms.txt" "select null::text where false;"
+
+echo ">> collecting AWS DMS restore metadata ..."
+write_pg_list awsdms "$RUN_DIR/awsdms_tables.txt" "select c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='${SCHEMA}' and c.relkind in ('r','p') and not c.relispartition order by 1;"
+write_pg_list awsdms "$RUN_DIR/awsdms_views.txt" "select table_name from information_schema.views where table_schema='${SCHEMA}' order by 1;"
+write_pg_list awsdms "$RUN_DIR/awsdms_mviews.txt" "select matviewname from pg_matviews where schemaname='${SCHEMA}' order by 1;"
+write_pg_list awsdms "$RUN_DIR/awsdms_sequences.txt" "select c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='${SCHEMA}' and c.relkind='S' order by 1;"
+write_pg_list awsdms "$RUN_DIR/awsdms_routines.txt" "select p.proname from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='${SCHEMA}' and p.prokind in ('f','p') order by 1;"
+write_pg_list awsdms "$RUN_DIR/awsdms_triggers.txt" "select t.tgname from pg_trigger t join pg_class c on c.oid=t.tgrelid join pg_namespace n on n.oid=c.relnamespace where n.nspname='${SCHEMA}' and not t.tgisinternal order by 1;"
+write_pg_list awsdms "$RUN_DIR/awsdms_indexes.txt" "select indexname from pg_indexes where schemaname='${SCHEMA}' order by 1;"
+write_pg_list awsdms "$RUN_DIR/awsdms_synonyms.txt" "select null::text where false;"
+
+echo ">> running view/materialized view smoke tests ..."
+smoke_views ora2pg
+smoke_views awsdms
+
+echo ">> running routine smoke tests ..."
+run_routine_smoke ora2pg
+run_routine_smoke awsdms
+
+data_mismatch=0
+{
+  echo "# Oracle 기준 변환 결과 비교"
+  echo
+  echo "- 생성: $(date '+%Y-%m-%d %H:%M:%S %Z')"
+  echo "- Oracle source: ${ORACLE_HOST}:${ORACLE_PORT}/${ORACLE_SERVICE}.${ORA_SCHEMA}"
+  echo "- Ora2Pg target: native PostgreSQL database \`${ORA2PG_DB}\`, schema \`${SCHEMA}\`"
+  echo "- AWS DMS target: local restore \`${AWS_CONT}/${AWS_DB}\`, schema \`${SCHEMA}\`"
+  echo
+
+  echo "## 1. 객체 수"
+  echo
+  echo "| 객체 | Oracle | Ora2Pg | AWS DMS |"
+  echo "|---|---:|---:|---:|"
+  for obj in tables views mviews sequences routines triggers indexes synonyms; do
+    echo "| ${obj} | $(line_count "$RUN_DIR/oracle_${obj}.txt") | $(line_count "$RUN_DIR/ora2pg_${obj}.txt") | $(line_count "$RUN_DIR/awsdms_${obj}.txt") |"
+  done
+  echo
+
+  echo "## 2. 구조 속성 수"
+  echo
+  echo "| 항목 | Oracle | Ora2Pg | AWS DMS |"
+  echo "|---|---:|---:|---:|"
+  for metric in columns primary_keys foreign_keys unique_constraints check_constraints not_null_columns; do
+    echo "| ${metric} | $(oracle_struct_metric "$metric") | $(pg_struct_metric ora2pg "$metric") | $(pg_struct_metric awsdms "$metric") |"
+  done
+  echo
+
+  echo "## 3. 일반 테이블 행 수"
+  echo
+  echo "| 테이블 | Oracle | Ora2Pg | AWS DMS | 판정 |"
+  echo "|---|---:|---:|---:|---|"
+  while IFS= read -r t; do
+    [ -n "$t" ] || continue
+    oracle_t="$(printf '%s' "$t" | tr 'a-z' 'A-Z')"
+    o="$(oracle_count_or_error "$oracle_t")"
+    p="$(pg_count_or_error ora2pg "$t")"
+    a="$(pg_count_or_error awsdms "$t")"
+    verdict="PASS"
+    if [ "$o" != "$p" ] || [ "$o" != "$a" ]; then verdict="FAIL"; data_mismatch=1; fi
+    echo "| $t | $o | $p | $a | $verdict |"
+  done < "$RUN_DIR/oracle_tables.txt"
+  echo
+
+  echo "## 4. Oracle Materialized View 처리"
+  echo
+  echo "| MV | Oracle rows | Ora2Pg 형태 | Ora2Pg rows | AWS DMS 형태 | AWS DMS rows |"
+  echo "|---|---:|---|---:|---|---:|"
+  while IFS= read -r mv; do
+    [ -n "$mv" ] || continue
+    oracle_mv="$(printf '%s' "$mv" | tr 'a-z' 'A-Z')"
+    o="$(oracle_count_or_error "$oracle_mv")"
+    pkind="$(relation_kind ora2pg "$mv" || true)"
+    akind="$(relation_kind awsdms "$mv" || true)"
+    case "$pkind" in m) pform="materialized view" ;; r|p) pform="table" ;; *) pform="missing" ;; esac
+    case "$akind" in m) aform="materialized view" ;; r|p) aform="table" ;; *) aform="missing" ;; esac
+    if [ "$pform" = "missing" ]; then prows="-"; else prows="$(pg_count_or_error ora2pg "$mv")"; fi
+    if [ "$aform" = "missing" ]; then arows="-"; else arows="$(pg_count_or_error awsdms "$mv")"; fi
+    echo "| $mv | $o | $pform | $prows | $aform | $arows |"
+  done < "$RUN_DIR/oracle_mviews.txt"
+  echo
+
+  echo "## 5. Oracle Synonym 처리"
+  echo
+  echo "| Synonym | Ora2Pg 형태 | AWS DMS 형태 |"
+  echo "|---|---|---|"
+  while IFS= read -r syn; do
+    [ -n "$syn" ] || continue
+    pkind="$(relation_kind ora2pg "$syn" || true)"
+    akind="$(relation_kind awsdms "$syn" || true)"
+    case "$pkind" in v) pform="view" ;; m) pform="materialized view" ;; r|p) pform="table" ;; *) pform="missing" ;; esac
+    case "$akind" in v) aform="view" ;; m) aform="materialized view" ;; r|p) aform="table" ;; *) aform="missing" ;; esac
+    echo "| $syn | $pform | $aform |"
+  done < "$RUN_DIR/oracle_synonyms.txt"
+  echo
+
+  echo "## 6. 객체 이름 차이"
+  echo
+  diff_summary "Tables" "$RUN_DIR/oracle_tables.txt" "$RUN_DIR/ora2pg_tables.txt" "$RUN_DIR/awsdms_tables.txt"
+  echo
+  diff_summary "Views" "$RUN_DIR/oracle_views.txt" "$RUN_DIR/ora2pg_views.txt" "$RUN_DIR/awsdms_views.txt"
+  echo
+  diff_summary "Materialized Views" "$RUN_DIR/oracle_mviews.txt" "$RUN_DIR/ora2pg_mviews.txt" "$RUN_DIR/awsdms_mviews.txt"
+  echo
+  diff_summary "Sequences" "$RUN_DIR/oracle_sequences.txt" "$RUN_DIR/ora2pg_sequences.txt" "$RUN_DIR/awsdms_sequences.txt"
+  echo
+  diff_summary "Routines" "$RUN_DIR/oracle_routines.txt" "$RUN_DIR/ora2pg_routines.txt" "$RUN_DIR/awsdms_routines.txt"
+  echo
+  diff_summary "Triggers" "$RUN_DIR/oracle_triggers.txt" "$RUN_DIR/ora2pg_triggers.txt" "$RUN_DIR/awsdms_triggers.txt"
+  echo
+  echo "## 7. View/MV smoke test"
+  echo
+  echo "| 대상 | 객체 | 결과 | 오류 |"
+  echo "|---|---|---|---|"
+  awk -F '\t' '{ printf "| Ora2Pg | `%s` | %s | %s |\n", $1, $2, ($3 == "" ? "-" : $3) }' "$RUN_DIR/ora2pg_view_smoke.tsv"
+  awk -F '\t' '{ printf "| AWS DMS | `%s` | %s | %s |\n", $1, $2, ($3 == "" ? "-" : $3) }' "$RUN_DIR/awsdms_view_smoke.tsv"
+  echo
+
+  ora2pg_routine_errors="$(grep -c 'ERROR:' "$RUN_DIR/ora2pg_routine_smoke.log" || true)"
+  awsdms_routine_errors="$(grep -c 'ERROR:' "$RUN_DIR/awsdms_routine_smoke.log" || true)"
+  echo "## 8. Routine smoke test"
+  echo
+  echo "| 대상 | 오류 수 | 로그 |"
+  echo "|---|---:|---|"
+  echo "| Ora2Pg | $ora2pg_routine_errors | output/1450/ora2pg_routine_smoke.log |"
+  echo "| AWS DMS | $awsdms_routine_errors | output/1450/awsdms_routine_smoke.log |"
+  echo
+
+  echo "## 9. 판정"
+  echo
+  if [ "$data_mismatch" -eq 0 ]; then
+    echo "- 데이터 행 수: PASS"
+  else
+    echo "- 데이터 행 수: FAIL"
+  fi
+  echo "- 객체 변환: 위 객체 수/이름 차이를 기준으로 수동 검토"
+  echo "- 실행 가능성: View/MV smoke와 Routine smoke 오류 수를 기준으로 검토"
+  echo "- 이 스크립트의 성공은 비교 리포트 생성 성공을 의미한다. 변환 품질 차이는 리포트에 기록한다."
+} > "$REPORT"
+
+echo "saved: $REPORT"

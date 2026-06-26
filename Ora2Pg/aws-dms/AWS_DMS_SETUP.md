@@ -12,7 +12,7 @@ AWS(DMS / DMS Schema Conversion)에서 공유기 뒤의 이 Oracle 서버에 접
 | 리스너 | TCP **1521** (0.0.0.0) |
 | 공인 IP(접속 대상) | **<PUBLIC_IP>** ※ 가정용 → **유동일 수 있음**(바뀌면 DMS 엔드포인트 수정 또는 DDNS) |
 | 포트포워딩 | 외부 1521 → 내부 `192.168.29.248:1521` (외부 확인 완료) |
-| ARCHIVELOG | **NOARCHIVELOG** → Full Load·Schema Conversion 가능 / **CDC는 추가 설정 필요**(§5) |
+| ARCHIVELOG | **NOARCHIVELOG** → Full Load·Schema Conversion 가능 / **CDC는 ARCHIVELOG+보충로깅 필요**(§5, bin/0140) |
 
 ## 2. 생성된 AWS 접속 계정 (공통 사용자 C##)
 
@@ -26,7 +26,7 @@ AWS(DMS / DMS Schema Conversion)에서 공유기 뒤의 이 Oracle 서버에 접
 | 계정 | 용도 | 비밀번호 | 비고 |
 |---|---|---|---|
 | `C##DMS_SC` | **DMS Schema Conversion**(메타데이터 읽기) | 아이디 역순(미저장) | CONNECT, SELECT_CATALOG_ROLE, SELECT ANY DICTIONARY |
-| `C##DMS` | **DMS 데이터 마이그레이션 소스**(Full Load + CDC 준비) | 아이디 역순(미저장) | V$/사전/SELECT ANY TABLE/LogMiner 권한 |
+| `C##DMS` | **DMS 데이터 마이그레이션 소스**(Full Load + CDC) | 아이디 역순(미저장) | V$/사전/SELECT ANY TABLE; CDC 는 Binary Reader 권한(03) |
 
 > 검증 완료: 두 계정 모두 `ORCLPDB1` 접속 OK. `C##DMS` 는 SAMPLE 테이블 데이터·V$ 읽기 OK,
 > `C##DMS_SC` 는 `DBA_*` 로 SAMPLE 스키마 메타데이터(15테이블/102객체/135컬럼) 읽기 OK.
@@ -46,9 +46,9 @@ AWS(DMS / DMS Schema Conversion)에서 공유기 뒤의 이 Oracle 서버에 접
 
 - **SID vs Service**: 이 DB는 CDB라서 SID(`ORCL`)가 아니라 **PDB 서비스명 `ORCLPDB1`** 로 접속.
   DMS 콘솔의 "Database name" 에 `ORCLPDB1` 입력(또는 엔드포인트 설정에서 서비스명 사용).
-- **멀티테넌트(CDB) 주의**: DMS 가 CDB 소스를 다룰 때 일부 버전은 추가 설정이 필요할 수 있다.
-  Full Load 는 위 설정으로 동작. CDC 사용 시 DMS 의 Oracle CDB/PDB 관련 extra connection
-  attribute(예: LogMiner 관련)와 공통 사용자 요건을 DMS 콘솔 안내에 맞춰 확인할 것.
+- **멀티테넌트(CDB/PDB) 주의**: PDB 는 LogMiner 연결 불가 → CDC 는 **Binary Reader** 필수
+  (`UseLogminerReader=false, UseBFile=true`; 이미 설정됨). Full Load·CDC 모두 위 설정으로 동작.
+  CDC 전제조건(ARCHIVELOG·보충로깅·Binary Reader 권한)은 §5 / bin/0120·0140 로 자동화한다.
 
 ## 4. DMS Schema Conversion(또는 SCT) 설정값
 
@@ -64,14 +64,25 @@ Schema Conversion 은 데이터가 아니라 **구조(테이블/뷰/패키지/�
 자율 트랜잭션 트리거, MV, 복합FK 파티셔닝 등)를 포함하므로, 변환 결과 점검 기준은
 [`../../sample-data/sample-schema-bulk/MIGRATION_TEST_MATRIX.md`](../../sample-data/sample-schema-bulk/MIGRATION_TEST_MATRIX.md) 참고.
 
-## 5. CDC(변경데이터캡처)를 쓸 경우 — ★재시작 필요★
+## 5. CDC(변경데이터캡처)를 쓸 경우 — ★Oracle 재시작 필요★
 
-현재 `NOARCHIVELOG` 라 CDC 불가. 필요 시 [`02_enable_cdc.sql`](02_enable_cdc.sql) 실행:
-1. ARCHIVELOG 전환 (`SHUTDOWN IMMEDIATE` → `STARTUP MOUNT` → `ALTER DATABASE ARCHIVELOG` → `OPEN`) — **인스턴스 재시작 동반**
-2. 보충 로깅: `ADD SUPPLEMENTAL LOG DATA` + `(PRIMARY KEY) COLUMNS` (온라인)
-3. PK/UNIQUE 없는 테이블은 테이블별 `ALL COLUMNS` 보충 로깅 추가
-LogMiner 실행 권한(`DBMS_LOGMNR`, `LOGMINING`)은 `C##DMS` 에 이미 부여됨.
-> Full Load(전체 데이터 1회 이관)만 할 거면 이 단계는 건너뛴다.
+PDB 는 LogMiner 연결 불가 → **Binary Reader** 사용(소스 엔드포인트는 이미 `UseLogminerReader=false,
+UseBFile=true`). `config.env` 에서 `MIGRATION_TYPE=full-load-and-cdc` 로 바꾼 뒤 아래 단계로 준비한다.
+
+- **`bin/0120_grant-oracle-cdc-privileges`** → [`03_grant_binary_reader_cdc.sql`](03_grant_binary_reader_cdc.sql)
+  : Binary Reader 권한(`CREATE ANY DIRECTORY`, `V_$TRANSPORTABLE_PLATFORM`, `DBMS_FILE_TRANSFER`,
+  `DBMS_FILE_GROUP`, `DBA_DIRECTORIES`) + CDC 검증용 센티넬 DML 권한. 멱등.
+- **`bin/0140_enable-oracle-cdc-redo`** (dry-run 기본, `--apply` 시 적용)
+  : ① [`02_enable_cdc.sql`](02_enable_cdc.sql) — ARCHIVELOG 전환(`SHUTDOWN`→`MOUNT`→`ARCHIVELOG`→`OPEN`,
+  **인스턴스 재시작**), NOARCHIVELOG 일 때만. ② [`04_supplemental_logging.sql`](04_supplemental_logging.sql)
+  — DB-level(min+PK) + 테이블별(PK 있으면 PK, 없으면 ALL) 보충 로깅(온라인, 멱등, DBA_TABLES 도출).
+
+> ★ ARCHIVELOG 전환 후 아카이브 redo 가 계속 쌓인다 → **FRA 여유 + 보존 ~24h** 먼저 확인
+>   (`bin/0140` dry-run 이 FRA 사용량·아카이브 목적지를 함께 출력한다).
+> LogMiner 권한(`DBMS_LOGMNR`,`LOGMINING`)은 남아 있어도 무해하나 Binary Reader 에선 미사용.
+> Full Load(1회 이관)만 할 거면 `MIGRATION_TYPE=full-load`(기본) 이고 이 단계들은 자동 스킵된다.
+> 실행/검증/컷오버: `bin/1100`(full load) → `bin/1150`(모니터) → `bin/1160`(변경 전파 검증)
+> → `bin/1180 --source-quiesced`(컷오버·시퀀스 보정) → `bin/1200`(덤프).
 
 ## 6. 접속 사전 점검 (AWS EC2 등 외부에서)
 

@@ -52,6 +52,19 @@ delete_stack() { # <short> [pre-hook-fn]
   fi
 }
 
+# A running replication task blocks stack deletion — stop it first (apply mode).
+if [ "$APPLY" -eq 1 ] && stack_exists data-migration; then
+  t="$(stack_output data-migration ReplicationTaskArn 2>/dev/null || true)"
+  if [ -n "$t" ]; then
+    s="$(aws dms describe-replication-tasks --filters Name=replication-task-arn,Values="$t" --query 'ReplicationTasks[0].Status' --output text 2>/dev/null || echo)"
+    if [ "$s" = "running" ] || [ "$s" = "starting" ]; then
+      echo "stopping running replication task before delete ..."
+      aws dms stop-replication-task --replication-task-arn "$t" >/dev/null 2>&1 || true
+      for i in $(seq 1 40); do s="$(aws dms describe-replication-tasks --filters Name=replication-task-arn,Values="$t" --query 'ReplicationTasks[0].Status' --output text 2>/dev/null)"; echo "  task: $s"; [ "$s" = "stopped" ] && break; sleep 10; done
+    fi
+  fi
+fi
+
 delete_stack data-migration
 delete_stack schema-conversion
 

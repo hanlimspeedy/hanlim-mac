@@ -1,10 +1,11 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: >
   wrtp data migration - DMS replication instance, Oracle source + PostgreSQL target
-  endpoints (Secrets Manager auth), and a full-load replication task.
+  endpoints (Secrets Manager auth), and a full-load (optionally + CDC) replication task.
 
 Parameters:
-  SubnetIds: { Type: List<AWS::EC2::Subnet::Id> }
+  Subnet1Id: { Type: AWS::EC2::Subnet::Id }
+  Subnet2Id: { Type: AWS::EC2::Subnet::Id }
   DmsSecurityGroupId: { Type: AWS::EC2::SecurityGroup::Id }
   ReplicationInstanceClass: { Type: String, Default: dms.t3.medium }
   OracleService: { Type: String, Default: ORCLPDB1 }
@@ -15,6 +16,11 @@ Parameters:
     Type: String
     Description: Role DMS endpoints assume to read the secrets (reuse wrtp-sc-secrets-role).
   OracleSchema: { Type: String, Default: SAMPLE }
+  MigrationType:
+    Type: String
+    Default: full-load
+    AllowedValues: [full-load, full-load-and-cdc]
+    Description: full-load (one-time) or full-load-and-cdc (bulk + ongoing replication).
 
 Resources:
   DmsSubnetGroup:
@@ -22,7 +28,7 @@ Resources:
     Properties:
       ReplicationSubnetGroupIdentifier: wrtp-dms-subnet
       ReplicationSubnetGroupDescription: wrtp data migration subnet group
-      SubnetIds: !Ref SubnetIds
+      SubnetIds: [!Ref Subnet1Id, !Ref Subnet2Id]
       Tags: [{ Key: Project, Value: wrtp }]
 
   ReplicationInstance:
@@ -47,6 +53,9 @@ Resources:
       OracleSettings:
         SecretsManagerSecretId: !Ref OracleDmsSecretArn
         SecretsManagerAccessRoleArn: !Ref SecretsAccessRoleArn
+        # Oracle PDB can't use LogMiner -> Binary Reader (required for both full-load AND CDC).
+        UseLogminerReader: false
+        UseBFile: true
       Tags: [{ Key: Project, Value: wrtp }]
 
   TargetEndpoint:
@@ -56,6 +65,7 @@ Resources:
       EndpointType: target
       EngineName: postgres
       DatabaseName: !Ref PgDbName
+      SslMode: require                  # RDS rejects non-SSL (pg_hba: no encryption)
       PostgreSqlSettings:
         SecretsManagerSecretId: !Ref PgTargetSecretArn
         SecretsManagerAccessRoleArn: !Ref SecretsAccessRoleArn
@@ -66,15 +76,20 @@ Resources:
     Type: AWS::DMS::ReplicationTask
     Properties:
       ReplicationTaskIdentifier: wrtp-fulltask
-      MigrationType: full-load
+      MigrationType: !Ref MigrationType
       ReplicationInstanceArn: !Ref ReplicationInstance
       SourceEndpointArn: !Ref SourceEndpoint
       TargetEndpointArn: !Ref TargetEndpoint
       TableMappings: !Sub |
-        {"rules":[{"rule-type":"selection","rule-id":"1","rule-name":"include-schema",
-        "object-locator":{"schema-name":"${OracleSchema}","table-name":"%"},"rule-action":"include"}]}
+        {"rules":[
+          {"rule-type":"selection","rule-id":"1","rule-name":"include-schema","object-locator":{"schema-name":"${OracleSchema}","table-name":"%"},"rule-action":"include"},
+          {"rule-type":"selection","rule-id":"2","rule-name":"exclude-mlog","object-locator":{"schema-name":"${OracleSchema}","table-name":"MLOG$%"},"rule-action":"exclude"},
+          {"rule-type":"transformation","rule-id":"3","rule-name":"drop-generated-line-total","rule-target":"column","object-locator":{"schema-name":"${OracleSchema}","table-name":"ORDER_ITEMS","column-name":"LINE_TOTAL"},"rule-action":"remove-column"},
+          {"rule-type":"transformation","rule-id":"4","rule-name":"lc-schema","rule-target":"schema","object-locator":{"schema-name":"${OracleSchema}"},"rule-action":"convert-lowercase"},
+          {"rule-type":"transformation","rule-id":"5","rule-name":"lc-table","rule-target":"table","object-locator":{"schema-name":"${OracleSchema}","table-name":"%"},"rule-action":"convert-lowercase"}
+        ]}
       ReplicationTaskSettings: |
-        {"TargetMetadata":{"TargetTablePrepMode":"DO_NOTHING"},
+        {"FullLoadSettings":{"TargetTablePrepMode":"DO_NOTHING"},
          "ValidationSettings":{"EnableValidation":true},
          "Logging":{"EnableLogging":true}}
       Tags: [{ Key: Project, Value: wrtp }]

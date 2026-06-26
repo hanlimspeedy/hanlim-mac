@@ -16,7 +16,7 @@ pgsec="$(stack_output foundation PgTargetSecretArn)"
 pghost="$(stack_output target-postgresql RdsEndpointAddress)"
 
 deploy_stack schema-conversion "$AWSDMS_DIR/cfn/schema-conversion.yaml" \
-  "SubnetIds=${sub1}\,${sub2}" \
+  "Subnet1Id=${sub1}" "Subnet2Id=${sub2}" \
   "DmsSecurityGroupId=${dmssg}" \
   "OracleServerName=${ORACLE_PUBLIC_IP}" \
   "OraclePort=${ORACLE_PORT}" \

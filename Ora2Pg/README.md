@@ -26,10 +26,15 @@ The same Ora2Pg export is loaded into two targets and compared. See
 `aws-dms/` holds the AWS DMS / Schema Conversion access guide for reaching this
 on-prem Oracle from AWS — connection endpoints, the `C##DMS` / `C##DMS_SC`
 accounts, and CDC prerequisites. Moved here from the `oracle-db` repo on 248.
+Ora2Pg (above) is full-load/offline only; for incremental **CDC** use this AWS DMS
+path (`MIGRATION_TYPE=full-load-and-cdc`). Open-source CDC would need a separate tool
+(Debezium/SymmetricDS) — see [MIGRATION_TEST.md](MIGRATION_TEST.md).
 
 - [aws-dms/AWS_DMS_SETUP.md](aws-dms/AWS_DMS_SETUP.md) — endpoints, accounts, CDC notes
 - [aws-dms/01_create_dms_users.sql](aws-dms/01_create_dms_users.sql) — DMS account DDL (passwords passed at runtime, not stored)
-- [aws-dms/02_enable_cdc.sql](aws-dms/02_enable_cdc.sql) — ARCHIVELOG + supplemental logging (restart required; CDC only)
+- [aws-dms/02_enable_cdc.sql](aws-dms/02_enable_cdc.sql) — ARCHIVELOG transition (restart required; CDC only)
+- [aws-dms/03_grant_binary_reader_cdc.sql](aws-dms/03_grant_binary_reader_cdc.sql) — Binary Reader CDC grants for C##DMS (CDC only)
+- [aws-dms/04_supplemental_logging.sql](aws-dms/04_supplemental_logging.sql) — DB + per-table supplemental logging (online, idempotent; CDC only)
 
 ## Project files
 

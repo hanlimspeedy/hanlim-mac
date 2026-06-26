@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# Step 0850 — apply small PostgreSQL fixes after DMS Schema Conversion.
+#
+# DMS Schema Conversion can report SUCCESS while individual target objects fail.
+# This step keeps the manual fixes repeatable instead of applying ad-hoc psql.
+set -euo pipefail
+# shellcheck disable=SC1091
+. "$(dirname "$0")/lib.sh"
+
+rds="$(stack_output target-postgresql RdsEndpointAddress)"
+pw="$(secret_field wrtp-pg-target password)"
+sql="$AWSDMS_DIR/sql/0850_fix-postgresql-schema-after-dms-conversion.sql"
+
+echo ">> applying PostgreSQL schema fixes to $rds/$RDS_DB_NAME ..."
+PGPASSWORD="$pw" PGSSLMODE=require psql -h "$rds" -U "$RDS_MASTER_USER" -d "$RDS_DB_NAME" \
+  -v ON_ERROR_STOP=1 -f "$sql"
+
+echo ">> verifying required schema objects ..."
+PGPASSWORD="$pw" PGSSLMODE=require psql -h "$rds" -U "$RDS_MASTER_USER" -d "$RDS_DB_NAME" \
+  -v ON_ERROR_STOP=1 <<'SQL'
+WITH required_tables(name) AS (
+  VALUES
+    ('orders'), ('orders_p2018'), ('orders_p2019'), ('orders_p2020'), ('orders_p2021'),
+    ('orders_p2022'), ('orders_p2023'), ('orders_p2024'), ('orders_p2025'), ('orders_p2026'),
+    ('orders_pmax')
+),
+required_views(name) AS (
+  VALUES ('v_customer_orders'), ('v_monthly_sales'), ('v_org_chart'), ('v_product_sales_rank'), ('v_top_customers')
+),
+required_constraints(name) AS (
+  VALUES ('pk_ord'), ('ck_ord_total'), ('fk_ord_cust'), ('fk_ord_emp'), ('fk_item_ord')
+),
+missing AS (
+  SELECT 'table' AS kind, name FROM required_tables
+  WHERE to_regclass('sample.' || name) IS NULL
+  UNION ALL
+  SELECT 'view', name FROM required_views
+  WHERE to_regclass('sample.' || name) IS NULL
+  UNION ALL
+  SELECT 'constraint', name FROM required_constraints
+  WHERE NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE connamespace = 'sample'::regnamespace AND conname = name
+  )
+)
+SELECT * FROM missing;
+SQL
+
+missing_count="$(
+  PGPASSWORD="$pw" PGSSLMODE=require psql -h "$rds" -U "$RDS_MASTER_USER" -d "$RDS_DB_NAME" -tAc "
+    WITH required_tables(name) AS (
+      VALUES
+        ('orders'), ('orders_p2018'), ('orders_p2019'), ('orders_p2020'), ('orders_p2021'),
+        ('orders_p2022'), ('orders_p2023'), ('orders_p2024'), ('orders_p2025'), ('orders_p2026'),
+        ('orders_pmax')
+    ),
+    required_views(name) AS (
+      VALUES ('v_customer_orders'), ('v_monthly_sales'), ('v_org_chart'), ('v_product_sales_rank'), ('v_top_customers')
+    ),
+    required_constraints(name) AS (
+      VALUES ('pk_ord'), ('ck_ord_total'), ('fk_ord_cust'), ('fk_ord_emp'), ('fk_item_ord')
+    )
+    SELECT
+      (SELECT count(*) FROM required_tables WHERE to_regclass('sample.' || name) IS NULL) +
+      (SELECT count(*) FROM required_views WHERE to_regclass('sample.' || name) IS NULL) +
+      (SELECT count(*) FROM required_constraints WHERE NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE connamespace = 'sample'::regnamespace AND conname = name
+      ));"
+)"
+
+if [ "$missing_count" != "0" ]; then
+  echo "ERROR: required schema objects are still missing ($missing_count)" >&2
+  exit 1
+fi
+
+echo "OK: DMS schema conversion fixes applied. Next: bin/0900_create-data-migration-task"
