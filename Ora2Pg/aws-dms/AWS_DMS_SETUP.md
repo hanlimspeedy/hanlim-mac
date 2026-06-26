@@ -83,6 +83,8 @@ UseBFile=true`). `config.env` 에서 `MIGRATION_TYPE=full-load-and-cdc` 로 바�
 > Full Load(1회 이관)만 할 거면 `MIGRATION_TYPE=full-load`(기본) 이고 이 단계들은 자동 스킵된다.
 > 실행/검증/컷오버: `bin/1100`(full load) → `bin/1150`(모니터) → `bin/1160`(변경 전파 검증)
 > → `bin/1180 --source-quiesced`(컷오버·시퀀스 보정) → `bin/1200`(덤프).
+> 정리: AWS 리소스는 `bin/9100`(DMS 로그그룹 포함). Oracle 변경(권한·보충로깅·`awsdms_dir_test`·ARCHIVELOG)은
+> `bin/9200`(온라인 되돌리기; `--disable-archivelog` 로 ARCHIVELOG 환원=재시작)으로 되돌린다.
 
 ## 6. 접속 사전 점검 (AWS EC2 등 외부에서)
 

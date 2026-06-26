@@ -33,6 +33,7 @@ path (`MIGRATION_TYPE=full-load-and-cdc`). Open-source CDC would need a separate
 - [aws-dms/AWS_DMS_SETUP.md](aws-dms/AWS_DMS_SETUP.md) — endpoints, accounts, CDC notes
 - [aws-dms/01_create_dms_users.sql](aws-dms/01_create_dms_users.sql) — DMS account DDL (passwords passed at runtime, not stored)
 - [aws-dms/02_enable_cdc.sql](aws-dms/02_enable_cdc.sql) — ARCHIVELOG transition (restart required; CDC only)
+- [aws-dms/02_disable_archivelog.sql](aws-dms/02_disable_archivelog.sql) — revert ARCHIVELOG→NOARCHIVELOG (restart; CDC teardown via bin/9200)
 - [aws-dms/03_grant_binary_reader_cdc.sql](aws-dms/03_grant_binary_reader_cdc.sql) — Binary Reader CDC grants for C##DMS (CDC only)
 - [aws-dms/04_supplemental_logging.sql](aws-dms/04_supplemental_logging.sql) — DB + per-table supplemental logging (online, idempotent; CDC only)
 

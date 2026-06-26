@@ -15,6 +15,25 @@ for a in "$@"; do case "$a" in
   *) echo "usage: $(basename "$0") [--apply] [--delete-rds] [--include-shared]" >&2; exit 64 ;;
 esac; done
 
+# DMS auto-creates CloudWatch log groups OUTSIDE CloudFormation, so delete-stack leaves
+# them behind. Capture the ones tied to THIS run (replication instance + migration project)
+# now, before their stacks are deleted, so teardown removes exactly ours (not other DMS use).
+RI_LOG="dms-tasks-wrtp-dms-ri"   # matches ReplicationInstanceIdentifier in data-migration.yaml
+SCT_LOG=""
+if stack_exists schema-conversion; then
+  _projarn="$(stack_output schema-conversion MigrationProjectArn 2>/dev/null || true)"
+  [ -n "${_projarn:-}" ] && [ "$_projarn" != "None" ] && SCT_LOG="dms-tasks-sct-${_projarn##*:}"
+fi
+
+delete_log_group() { # <name>
+  local g="$1" found; [ -n "$g" ] || return 0
+  found="$(aws logs describe-log-groups --log-group-name-prefix "$g" \
+            --query "logGroups[?logGroupName=='$g'].logGroupName" --output text 2>/dev/null || true)"
+  [ "$found" = "$g" ] || { echo "skip log group $g (not present)"; return 0; }
+  echo "--- CloudWatch log group $g : would be deleted ---"
+  if [ "$APPLY" -eq 1 ]; then aws logs delete-log-group --log-group-name "$g" && echo "   deleted log group $g"; fi
+}
+
 echo "=== wrtp teardown — mode: $([ $APPLY -eq 1 ] && echo APPLY || echo 'DRY-RUN (nothing will be deleted)') ==="
 echo "Cross-check — account-wide ${TAG_KEY}=${TAG_VALUE} resources:"
 aws resourcegroupstaggingapi get-resources --tag-filters "Key=${TAG_KEY},Values=${TAG_VALUE}" \
@@ -83,6 +102,10 @@ if stack_exists shared-dms-roles; then
   if [ "$INC_SHARED" -eq 1 ]; then delete_stack shared-dms-roles
   else echo "--- $(stack_name shared-dms-roles) : SKIPPED (account-shared — pass --include-shared to remove) ---"; fi
 fi
+
+# DMS-created CloudWatch log groups for THIS run (not tracked by CloudFormation).
+delete_log_group "$RI_LOG"
+delete_log_group "$SCT_LOG"
 
 echo
 if [ "$APPLY" -eq 0 ]; then

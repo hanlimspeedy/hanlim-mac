@@ -49,7 +49,8 @@
 | 1400 | `bin/1400_compare-conversions` | Ora2Pg 결과와 AWS DMS 복원 결과 간 단순 객체 비교 |
 | 1450 | `bin/1450_compare-oracle-source-to-postgresql-conversions` | Oracle 원본 기준 Ora2Pg/AWS DMS 3자 검증 |
 | 9000 | `bin/9000_list-wrtp-resources` | wrtp 리소스 인벤토리(읽기) |
-| 9100 | `bin/9100_teardown-wrtp-resources` | 정리(dry-run 기본) |
+| 9100 | `bin/9100_teardown-wrtp-resources` | AWS 정리(dry-run 기본; DMS 로그그룹 포함) |
+| 9200 | `bin/9200_revert-oracle-cdc-prerequisites` | (CDC) Oracle 변경 되돌리기 — 권한·보충로깅·디렉터리; `--disable-archivelog`=ARCHIVELOG 환원(재시작) |
 
 생성되는 리소스 규칙·목록은 [CREATED_RESOURCES.md](CREATED_RESOURCES.md) 참고.
 
