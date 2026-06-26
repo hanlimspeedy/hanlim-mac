@@ -34,4 +34,5 @@
   `bin/9100` 이 이번 실행분(복제 인스턴스·마이그레이션 프로젝트 기준)을 함께 삭제한다.
 - **Oracle(온프레미스) CDC 변경** — ARCHIVELOG, DB/테이블 보충로깅, C##DMS Binary Reader 권한,
   `awsdms_dir_test` 디렉터리, FRA 아카이브 로그. AWS 아님 → `bin/9100` 대상 아님.
-  되돌리기는 `bin/9200`(온라인) + `bin/9200 --disable-archivelog`(ARCHIVELOG 환원, 재시작).
+  되돌리기는 `bin/9200`(온라인) + `bin/9200 --disable-archivelog`(ARCHIVELOG 환원, 재시작) +
+  `bin/9210 --apply`(FRA 아카이브 로그 회수, RMAN).

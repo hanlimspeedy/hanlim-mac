@@ -51,6 +51,7 @@
 | 9000 | `bin/9000_list-wrtp-resources` | wrtp 리소스 인벤토리(읽기) |
 | 9100 | `bin/9100_teardown-wrtp-resources` | AWS 정리(dry-run 기본; DMS 로그그룹 포함) |
 | 9200 | `bin/9200_revert-oracle-cdc-prerequisites` | (CDC) Oracle 변경 되돌리기 — 권한·보충로깅·디렉터리; `--disable-archivelog`=ARCHIVELOG 환원(재시작) |
+| 9210 | `bin/9210_purge-fra-archivelogs` | (CDC) FRA 아카이브 로그 회수(RMAN); dry-run 기본, `--apply` |
 
 생성되는 리소스 규칙·목록은 [CREATED_RESOURCES.md](CREATED_RESOURCES.md) 참고.
 

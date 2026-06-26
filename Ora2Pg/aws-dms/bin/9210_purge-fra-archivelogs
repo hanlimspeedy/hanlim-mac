@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Step 9210 — reclaim FRA space by deleting archived redo logs left over from CDC testing.
+# Run after CDC is done and ARCHIVELOG reverted (bin/9200 --disable-archivelog). Safe on the
+# test DB: in NOARCHIVELOG with no backup strategy these archived logs are not needed.
+# Mirrors bin/run-remote-sqlplus-sysdba (scp a command file, run on the host) but for RMAN.
+#   (no flag)  crosscheck + LIST archived logs (deletes nothing)
+#   --apply    crosscheck + DELETE all archived logs
+set -euo pipefail
+# shellcheck disable=SC1091
+. "$(dirname "$0")/lib.sh"
+REPO_ROOT="$(cd "$AWSDMS_DIR/.." && pwd)"
+# shellcheck disable=SC1091
+. "$REPO_ROOT/bin/env.sh"   # provides ORACLE_HOST (LAN), key-based SSH
+
+APPLY=0
+case "${1:-}" in --apply) APPLY=1 ;; "") ;; *) echo "usage: $(basename "$0") [--apply]" >&2; exit 64 ;; esac
+
+if [ "$APPLY" -eq 1 ]; then
+  CMDS='crosscheck archivelog all;
+delete noprompt archivelog all;
+list archivelog all;'
+else
+  CMDS='crosscheck archivelog all;
+list archivelog all;'
+fi
+
+local_f="$(mktemp "${TMPDIR:-/tmp}/9210-rman.XXXXXX.rman")"
+remote_f="/home/oracle/.ora2pg-tmp/9210-rman.$$.rman"
+cleanup() { rm -f "$local_f"; ssh root@"$ORACLE_HOST" "rm -f '$remote_f'" >/dev/null 2>&1 || true; }
+trap cleanup EXIT
+printf '%s\n' "$CMDS" > "$local_f"
+
+ssh root@"$ORACLE_HOST" "install -d -o oracle -g oinstall -m 700 /home/oracle/.ora2pg-tmp"
+scp -q "$local_f" root@"$ORACLE_HOST":"$remote_f"
+ssh root@"$ORACLE_HOST" "chown oracle:oinstall '$remote_f' && chmod 600 '$remote_f' && su - oracle -c 'rman target / cmdfile=$remote_f'"
+
+if [ "$APPLY" -eq 1 ]; then
+  echo ">> FRA archived logs deleted."
+else
+  echo ">> DRY-RUN (listed only). Re-run with --apply to delete."
+fi
