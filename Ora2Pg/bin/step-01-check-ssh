@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
-PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-# shellcheck disable=SC1091
-. "$PROJECT_DIR/bin/env.sh"
-
-exec "$PROJECT_DIR/bin/ssh-248" 'hostname && whoami'

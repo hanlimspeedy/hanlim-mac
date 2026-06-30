@@ -1,4 +1,0 @@
-#!/usr/bin/env bash
-# Compatibility wrapper. Use the clearer Docker-specific step name.
-set -euo pipefail
-exec "$(dirname "$0")/1300_restore-dump-to-docker-postgresql" "$@"

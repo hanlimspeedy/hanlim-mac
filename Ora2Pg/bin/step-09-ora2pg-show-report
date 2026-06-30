@@ -1,6 +1,0 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
-PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-export ORA2PG_TYPE=SHOW_REPORT
-exec "$PROJECT_DIR/bin/ora2pg-run"

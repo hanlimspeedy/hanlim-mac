@@ -1,5 +1,0 @@
-#!/usr/bin/env bash
-# Step 1165 — validate data-only CDC propagation with the existing sentinel test.
-set -euo pipefail
-
-MIGRATION_TYPE=full-load-and-cdc exec "$(dirname "$0")/1160_validate-cdc-change"
