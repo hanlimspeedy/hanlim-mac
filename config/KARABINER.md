@@ -20,7 +20,8 @@ Karabiner 앱/드라이버는 시스템 전체에 설치되지만, 아래 항목
 다른 macOS 사용자 계정에는 자동 적용되지 않는다. 각 사용자로 로그인한 뒤
 `/Users/Shared/root/hanlim-mac/0400_input-switch-shift-space.sh`를 실행해야 한다.
 최초 실행 후에는 해당 사용자 세션에서 Karabiner 입력 모니터링/접근성 권한을
-허용해야 할 수 있다.
+허용하고, 백그라운드 항목과 드라이버 확장 프로그램이 켜져 있는지 확인해야
+할 수 있다.
 
 ## 적용된 단축키 목록
 
@@ -115,15 +116,69 @@ CJK 입력 소스에서 표시만 바뀌고 실제 입력 컨텍스트가 갱신
 `~/.config/karabiner/karabiner.json`이 맞는데 모든 Karabiner 설정이 동작하지
 않으면 설정 파일보다 Core Service 권한/연결 상태를 먼저 확인한다.
 
+### macOS 권한 점검 체크리스트
+
+Karabiner-Elements 공식 문서의 필수 macOS 설정은 아래 네 가지다.
+
+1. 시스템 설정 > 일반 > 로그인 항목 및 확장 프로그램 > 앱 백그라운드 활동
+   - `Karabiner-Elements Non-Privileged Agents v2`: 켬
+   - `Karabiner-Elements Privileged Daemons v2`: 켬
+2. 시스템 설정 > 개인정보 보호 및 보안 > 손쉬운 사용
+   - `Karabiner-Core-Service`: 켬
+3. 시스템 설정 > 일반 > 로그인 항목 및 확장 프로그램 > 확장 프로그램 > 드라이버 확장
+   - `.Karabiner-VirtualHIDDevice-Manager`: 켬
+4. 시스템 설정 > 개인정보 보호 및 보안 > 입력 모니터링
+   - `Karabiner-Core-Service`: 켬
+
+Karabiner 16.0.0 이상에서는 입력 모니터링이 보통 손쉬운 사용 권한으로
+대체되지만, 문제 진단 시에는 위 네 항목을 모두 확인한다. `Terminal` 입력
+모니터링 권한은 Karabiner 키매핑의 필수 항목이 아니다.
+
+CLI로 확인:
+
 ```sh
-jq . "/Library/Application Support/org.pqrs/tmp/karabiner_core_service_state.json"
+karabiner_cli --version
+karabiner_cli --show-current-profile-name
+karabiner_cli --list-connected-devices
+karabiner_cli --lint-complex-modifications ~/.config/karabiner/karabiner.json
+cat ~/.local/share/karabiner/tmp/core-service-permission-check-result.json
+systemextensionsctl list | grep -i 'karabiner\|pqrs\|VirtualHID'
+```
+
+정상 예:
+
+```text
+Windows Style
+~/.config/karabiner/karabiner.json: ok
+{"accessibility_process_trusted":true,"iohid_listen_event_allowed":true}
+org.pqrs.Karabiner-DriverKit-VirtualHIDDevice ... [activated enabled]
+```
+
+시스템 설정 화면을 직접 열기:
+
+```sh
+open "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+open "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent"
+open "x-apple.systempreferences:com.apple.LoginItems-Settings.extension"
+```
+
+### Core Service 연결 상태
+
+```sh
 karabiner_cli --list-connected-devices
 ```
 
-`hid_device_open_permitted=false` 또는
-`core_service_client connect_failed`가 나오면 Karabiner가 입력 장치를 열지
-못하는 상태다. 시스템 설정 > 개인정보 보호 및 보안 > 입력 모니터링에서
-`Karabiner-Core-Service`를 허용한 뒤 Karabiner를 재시작하거나 재로그인한다.
+`core_service_client connect_failed`가 나오면 Karabiner가 Core Service에
+연결하지 못하는 상태다. 위 권한 네 항목을 확인한 뒤 Karabiner를 재시작하거나
+재로그인한다.
+
+Karabiner 구버전에서는 아래 state 파일에 `hid_device_open_permitted=false`가
+남을 수 있다. 현재 버전에서 파일이 없으면 `core-service-permission-check-result.json`
+과 시스템 설정 화면을 우선한다.
+
+```sh
+jq . "/Library/Application Support/org.pqrs/tmp/karabiner_core_service_state.json"
+```
 
 ### 입력 모니터링 목록에 Core Service가 없을 때
 
@@ -146,6 +201,17 @@ open "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEven
 필수 항목은 `Karabiner-Core-Service`다.
 
 설치 스크립트는 이 상태를 진단하고 입력 모니터링 설정 화면을 연다.
+
+### EventViewer 확인
+
+Karabiner-EventViewer를 열어 아래 상태를 확인한다.
+
+- Main: `Monitoring events` 켬
+- Main: `Temporarily turns off all Karabiner-Elements modifications` 끔
+- Settings 또는 System Extensions: `org.pqrs.Karabiner-DriverKit-VirtualHIDDevice`가 `[activated enabled]`
+
+EventViewer는 키 입력 확인 도구다. 열려 있어도 위 임시 비활성화 스위치가
+꺼져 있으면 키매핑을 막지 않는다.
 
 ## 참고 자료
 

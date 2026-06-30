@@ -127,8 +127,8 @@ cd /Users/Shared/root/hanlim-mac
 ./0400_input-switch-shift-space.sh
 ```
 
-최초 실행 후에는 그 사용자 세션에서 Karabiner 입력 모니터링/접근성 권한을
-허용해야 할 수 있다.
+최초 실행 후에는 그 사용자 세션에서 Karabiner 손쉬운 사용, 입력 모니터링,
+백그라운드 항목, 드라이버 확장 프로그램 권한을 확인해야 할 수 있다.
 
 ## 8BitDo Zero 2 (페이지 넘기기)
 
