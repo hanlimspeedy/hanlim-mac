@@ -26,7 +26,7 @@ mac-setup/
 ├── 1100_startup-mute.sh            # 부팅 사운드 끄기
 ├── 1200_menubar-volume.sh          # 메뉴바 볼륨 아이콘 표시
 ├── 1300_smb-connect.sh             # Windows SMB 공유 폴더 연결
-├── 1305_rdp-connect.sh             # Windows RDP 원격 데스크톱 연결
+├── 1305_rdp-connect.sh             # Windows RDP 원격 데스크톱 연결 (소리는 Windows PC에서 재생)
 ├── 1310_cyberduck.sh               # Cyberduck FTP/SFTP/WebDAV/S3 GUI 클라이언트
 ├── 1340_home-samba-link.sh        # /home autofs 해제 + samba 링크 + Finder 디스크/즐겨찾기
 ├── 1396_reset-codex-claude-env.sh # CODEX_HOME/CLAUDE_CONFIG_DIR launchd 해제 (sudo)
@@ -67,7 +67,7 @@ cd ~/mac-setup
 ./1100_startup-mute.sh             # 부팅 사운드 끄기
 ./1200_menubar-volume.sh           # 메뉴바 볼륨 아이콘 표시
 ./1300_smb-connect.sh              # Windows SMB 공유 폴더 연결
-./1305_rdp-connect.sh              # Windows RDP 원격 데스크톱 연결
+./1305_rdp-connect.sh              # Windows RDP 원격 데스크톱 연결 (소리는 Windows PC에서 재생)
 ./1310_cyberduck.sh                # Cyberduck FTP/SFTP 클라이언트
 ./1340_home-samba-link.sh          # /home autofs 해제 + samba 링크 + Finder 디스크/즐겨찾기 (1300 후 실행)
 ./1400_claude-compose-bar.sh       # Claude Code Compose Bar (한글 입력)

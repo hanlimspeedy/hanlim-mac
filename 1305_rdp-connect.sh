@@ -87,6 +87,7 @@ if [ "$RUN_FREERDP" = "1" ]; then
     /u:"$RDP_LOGIN_USER" \
     /p:"$RDP_PASS" \
     /cert:ignore \
+    /audio-mode:server \
     /dynamic-resolution
 fi
 
