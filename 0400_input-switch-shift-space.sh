@@ -38,12 +38,13 @@ if ! "$JQ" -e \
   exit 1
 fi
 
-# macOS 입력 소스 전환 단축키 활성화: Ctrl+Option+Space
-# Karabiner는 Shift+Space를 이 단축키로 변환한다.
+# Shift+Space는 Caps Lock으로 변환한다.
+# select_input_source는 메뉴바만 바뀌고 실제 앱 입력이 영어로 남을 수 있다.
+# macOS 입력 소스 순환 단축키도 입력 소스 목록에 따라 한 번에 전환되지 않을 수 있어 끈다.
 defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add 60 \
-  "<dict><key>enabled</key><false/><key>value</key><dict><key>type</key><string>standard</string><key>parameters</key><array><integer>65535</integer><integer>65535</integer><integer>0</integer></array></dict></dict>"
+  "<dict><key>enabled</key><false/><key>value</key><dict><key>type</key><string>standard</string><key>parameters</key><array><integer>32</integer><integer>49</integer><integer>262144</integer></array></dict></dict>"
 defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add 61 \
-  "<dict><key>enabled</key><true/><key>value</key><dict><key>type</key><string>standard</string><key>parameters</key><array><integer>32</integer><integer>49</integer><integer>786432</integer></array></dict></dict>"
+  "<dict><key>enabled</key><false/><key>value</key><dict><key>type</key><string>standard</string><key>parameters</key><array><integer>32</integer><integer>49</integer><integer>786432</integer></array></dict></dict>"
 defaults write com.apple.HIToolbox AppleGlobalTextInputProperties -dict TextInputGlobalPropertyPerContextInput -bool false
 killall cfprefsd 2>/dev/null || true
 killall TextInputMenuAgent 2>/dev/null || true
@@ -63,7 +64,7 @@ sleep 3
 echo ""
 echo "완료: Karabiner-Elements 설정 적용"
 echo "  - 2.4G 외장 키보드($EXTERNAL_KEYBOARD_VENDOR_HEX/$EXTERNAL_KEYBOARD_PRODUCT_HEX) Ctrl ↔ Cmd 스왑"
-echo "  - Shift+Space → Ctrl+Option+Space → 한영전환 (두벌식 ↔ ABC)"
+echo "  - Shift+Space → Caps Lock → macOS 네이티브 한영전환"
 echo ""
 echo "진단:"
 if command -v hidutil >/dev/null 2>&1; then

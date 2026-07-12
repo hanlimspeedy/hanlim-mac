@@ -6,7 +6,7 @@
 |------|------|------|
 | 윈도우 스타일 단축키 (13개) | complex_modifications | 완료 |
 | Num Lock 숫자패드 탐색키 | complex_modifications + variable toggle | 완료 |
-| Shift+Space 한영전환 | complex_modifications + macOS 입력 소스 단축키(Ctrl+Option+Space) | 완료 |
+| Shift+Space 한영전환 | complex_modifications + Caps Lock | 완료 |
 | 2.4G 외장 키보드 Ctrl↔Cmd | device simple_modifications | 완료 |
 
 ## 적용 범위
@@ -92,20 +92,50 @@ Karabiner 변수(`num_lock_off`) 토글로 윈도우와 동일한 Num Lock 동�
 
 ## Shift+Space 한영전환
 
+### 결론
+
+이 저장소의 정답은 `Shift+Space → caps_lock`이다.
+
+왼쪽 Caps Lock 키가 macOS에서 ABC↔두벌식 전환으로 정상 동작한다면,
+Karabiner는 `Shift+Space`를 같은 `caps_lock` 키 입력으로 보내는 역할만 해야
+한다. 이 경로가 macOS 네이티브 한영전환을 타기 때문에 메뉴바 표시와 현재 앱의
+실제 입력 컨텍스트가 함께 바뀐다.
+
 ### 방식
-Karabiner에서 `Shift+Space`를 macOS의 `Ctrl+Option+Space` 입력 소스 전환
-단축키로 변환한다. 설치 스크립트는 macOS의 "Select next source in Input
-menu" 단축키를 `Ctrl+Option+Space`로 활성화한다.
+Karabiner에서 `Shift+Space`를 `caps_lock` 키 입력으로 변환한다.
+macOS의 Caps Lock 한영전환이 실제 입력 컨텍스트까지 갱신하므로, 메뉴바만
+한글로 바뀌고 실제 입력은 영어로 남는 문제를 피한다.
 
 또한 앱/문서별 입력 소스 자동 전환(`TextInputGlobalPropertyPerContextInput`)을
 끈다. 이 옵션이 켜져 있으면 메뉴바 표시는 바뀌었는데 현재 터미널 입력
 컨텍스트는 이전 입력 소스를 유지하는 식의 불일치가 생길 수 있다.
 
-Caps Lock으로 우회하면 macOS 업데이트 후 실제 Caps Lock 토글이 발생해
-첫 글자가 대문자로 입력될 수 있어 사용하지 않는다. Karabiner의
-`select_input_source`나 별도 helper로 입력 소스를 직접 바꾸면 한국어 같은
-CJK 입력 소스에서 표시만 바뀌고 실제 입력 컨텍스트가 갱신되지 않을 수 있어
-사용하지 않는다.
+전제 조건: macOS 설정에서 왼쪽 Caps Lock 키가 ABC↔두벌식 전환으로 정상
+동작해야 한다.
+
+### 실패했던 방식
+
+아래 방식은 다시 도입하지 않는다.
+
+- `select_input_source`: Karabiner가 입력 소스를 직접 선택하는 방식이다. 한국어
+  같은 CJK 입력 소스에서 메뉴바는 한글로 바뀌지만 현재 앱의 실제 입력
+  컨텍스트가 영어로 남을 수 있다. 실제 증상은 "menubar에는 Hangul이 보이는데
+  한글이 입력되지 않음"이다.
+- `Ctrl+Option+Space`: macOS의 "Select next source in Input menu" 순환
+  단축키다. 입력 메뉴에 ABC/두벌식 외의 항목이 있으면 한 번에 ABC↔두벌식으로
+  가지 않을 수 있다.
+- `Ctrl+Space`: macOS의 "Select the previous input source" 단축키다. 이론상
+  토글에 가깝지만, Karabiner 가상 키보드가 보낸 이벤트가 현재 환경에서 안정적으로
+  입력 소스 전환으로 처리되지 않았다.
+- 별도 helper나 직접 TIS 전환: `select_input_source`와 같은 계열의 실패가 날 수
+  있어 기본 경로로 쓰지 않는다.
+
+### 검증 방법
+
+1. 왼쪽 Caps Lock 키를 직접 눌러 ABC↔두벌식이 실제 입력까지 바뀌는지 확인한다.
+2. `Shift+Space`를 눌렀을 때 왼쪽 Caps Lock과 같은 결과가 나와야 한다.
+3. 메뉴바만 한글이고 실제 입력이 영어라면 `select_input_source` 계열로 회귀한
+   것이므로 `config/karabiner.json`의 첫 규칙이 `key_code: caps_lock`인지 본다.
 
 ### 입력 소스 ID
 - 두벌식: `com.apple.inputmethod.Korean.2SetKorean`

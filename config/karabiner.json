@@ -6,7 +6,7 @@
       "complex_modifications": {
         "rules": [
           {
-            "description": "Shift+Space => Ctrl+Option+Space (next input source)",
+            "description": "Shift+Space to CapsLock (input source switch)",
             "manipulators": [
               {
                 "type": "basic",
@@ -23,11 +23,7 @@
                 },
                 "to": [
                   {
-                    "key_code": "spacebar",
-                    "modifiers": [
-                      "left_control",
-                      "left_option"
-                    ]
+                    "key_code": "caps_lock"
                   }
                 ]
               }
