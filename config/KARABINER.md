@@ -110,6 +110,11 @@ macOS의 Caps Lock 한영전환이 실제 입력 컨텍스트까지 갱신하므
 끈다. 이 옵션이 켜져 있으면 메뉴바 표시는 바뀌었는데 현재 터미널 입력
 컨텍스트는 이전 입력 소스를 유지하는 식의 불일치가 생길 수 있다.
 
+Caps Lock의 길게 누르기 대문자 고정은 끈다
+(`AppleCapsLockPressAndHoldToggleOff=true`). 이 기능이 켜져 있으면 macOS가
+Caps Lock을 짧게 누른 한영전환인지 길게 누른 대문자 고정인지 판별해야 해서
+한영전환 지연이나 씹힘이 생길 수 있다. 대문자는 Shift로 입력한다.
+
 전제 조건: macOS 설정에서 왼쪽 Caps Lock 키가 ABC↔두벌식 전환으로 정상
 동작해야 한다.
 
@@ -136,6 +141,7 @@ macOS의 Caps Lock 한영전환이 실제 입력 컨텍스트까지 갱신하므
 2. `Shift+Space`를 눌렀을 때 왼쪽 Caps Lock과 같은 결과가 나와야 한다.
 3. 메뉴바만 한글이고 실제 입력이 영어라면 `select_input_source` 계열로 회귀한
    것이므로 `config/karabiner.json`의 첫 규칙이 `key_code: caps_lock`인지 본다.
+4. Caps Lock을 길게 눌러도 대문자 고정이 켜지지 않아야 한다.
 
 ### 입력 소스 ID
 - 두벌식: `com.apple.inputmethod.Korean.2SetKorean`

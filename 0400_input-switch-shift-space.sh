@@ -46,6 +46,7 @@ defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add 60 \
 defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add 61 \
   "<dict><key>enabled</key><false/><key>value</key><dict><key>type</key><string>standard</string><key>parameters</key><array><integer>32</integer><integer>49</integer><integer>786432</integer></array></dict></dict>"
 defaults write com.apple.HIToolbox AppleGlobalTextInputProperties -dict TextInputGlobalPropertyPerContextInput -bool false
+defaults write com.apple.HIToolbox AppleCapsLockPressAndHoldToggleOff -bool true
 killall cfprefsd 2>/dev/null || true
 killall TextInputMenuAgent 2>/dev/null || true
 killall keyboardservicesd 2>/dev/null || true
@@ -65,6 +66,7 @@ echo ""
 echo "완료: Karabiner-Elements 설정 적용"
 echo "  - 2.4G 외장 키보드($EXTERNAL_KEYBOARD_VENDOR_HEX/$EXTERNAL_KEYBOARD_PRODUCT_HEX) Ctrl ↔ Cmd 스왑"
 echo "  - Shift+Space → Caps Lock → macOS 네이티브 한영전환"
+echo "  - Caps Lock 길게 누르기 대문자 고정 끔"
 echo ""
 echo "진단:"
 if command -v hidutil >/dev/null 2>&1; then
