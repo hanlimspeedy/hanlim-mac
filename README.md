@@ -9,11 +9,14 @@ mac-setup/
 │   ├── karabiner.json               # Karabiner-Elements 설정 (윈도우 스타일)
 │   ├── KARABINER.md                 # Karabiner 설정 가이드 + 트러블슈팅
 │   ├── TERMIUS.md                   # Termius 설정 가이드 (기본 터미널)
+│   ├── VNC.md                       # Windows에서 Mac VNC 접속 가이드
 │   ├── 8BITDO.md                    # 8BitDo Zero 2 설정 가이드 (페이지 넘기기)
 │   └── tmux.conf                    # tmux 설정 (mouse + Compose Bar)
 ├── 0100_xcode-cli-tools.sh          # Xcode CLI Tools (git 포함)
 ├── 0110_homebrew-shared.sh          # Homebrew 다중 사용자 공유 (admin 그룹, 멱등성 보장)
 ├── 0200_sudo-touchid.sh             # NOPASSWD sudoers + Touch ID 보존 (영구 비밀번호 없이 sudo)
+├── 0210_ssh-remote-login.sh          # SSH 원격 로그인 켜기/끄기 + 접속 정보
+├── 0215_vnc-server.sh                # macOS 내장 VNC 서버 (Windows TigerVNC 접속)
 ├── 0220_claude-screencapture.sh     # Claude Code 화면 캡쳐 권한 설정 (최초 1회)
 ├── 0300_homebrew.sh                 # Homebrew 설치
 ├── 0400_input-switch-shift-space.sh # Karabiner + Shift+Space 한영전환 + Ctrl↔Cmd
@@ -55,6 +58,8 @@ cd ~/mac-setup
 ./0100_xcode-cli-tools.sh   # Xcode CLI Tools 설치 (팝업 승인 필요)
 ./0110_homebrew-shared.sh   # Homebrew 다중 사용자 공유 (다른 계정이 brew 설치한 경우)
 ./0200_sudo-touchid.sh      # NOPASSWD sudoers + Touch ID 보존 (영구 비밀번호 없이 sudo)
+./0210_ssh-remote-login.sh  # SSH 원격 로그인
+./0215_vnc-server.sh        # macOS 내장 VNC 서버 (Windows에서 접속)
 ./0220_claude-screencapture.sh  # 화면 캡쳐 권한 (최초 1회)
 ./0300_homebrew.sh           # Homebrew 설치
 ./0400_input-switch-shift-space.sh  # Karabiner + 한영전환 + 키보드 설정
@@ -144,6 +149,22 @@ cd /Users/Shared/root/hanlim-mac
 
 macOS 기본 터미널 대신 Termius를 기본으로 사용. Ctrl+C/V 복사/붙여넣기, SSH, Local Terminal 지원.
 상세 설정은 [config/TERMIUS.md](config/TERMIUS.md) 참조.
+
+## Windows에서 Mac VNC 접속
+
+`0215_vnc-server.sh`로 macOS 내장 VNC 서버를 켜고 Windows의 TigerVNC
+Viewer에서 접속한다. 외부망에서는 TCP 5900을 포트 포워딩하지 말고
+Tailscale IP를 사용한다.
+
+```bash
+./0215_vnc-server.sh          # 켜기
+./0215_vnc-server.sh on --password-file .vnc-passwd.env
+./0215_vnc-server.sh status   # 상태 및 접속 주소
+./0215_vnc-server.sh off      # 끄기
+```
+
+상세 설정과 macOS 최초 보안 승인, Windows 접속 및 문제 해결은
+[config/VNC.md](config/VNC.md) 참조.
 
 ## Claude Code 연동 설명
 
