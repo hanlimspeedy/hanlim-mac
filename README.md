@@ -32,6 +32,8 @@ mac-setup/
 ├── 1305_rdp-connect.sh             # Windows RDP 원격 데스크톱 연결 (소리는 Windows PC에서 재생)
 ├── 1310_cyberduck.sh               # Cyberduck FTP/SFTP/WebDAV/S3 GUI 클라이언트
 ├── 1340_home-samba-link.sh        # /home autofs 해제 + samba 링크 + Finder 디스크/즐겨찾기
+├── 1360_rustdesk.sh               # RustDesk 원격 데스크톱 설치
+├── 1365_rustdesk-autostart.sh     # RustDesk 부팅/로그인 자동 실행
 ├── 1396_reset-codex-claude-env.sh # CODEX_HOME/CLAUDE_CONFIG_DIR launchd 해제 (sudo)
 ├── 1400_claude-compose-bar.sh     # Claude Code Compose Bar (한글 입력 해결)
 ├── 1430_claude-reset-reinstall.sh # Claude Code/Desktop 완전 초기화 + 재설치 (dry-run 기본)
@@ -75,6 +77,8 @@ cd ~/mac-setup
 ./1305_rdp-connect.sh              # Windows RDP 원격 데스크톱 연결 (소리는 Windows PC에서 재생)
 ./1310_cyberduck.sh                # Cyberduck FTP/SFTP 클라이언트
 ./1340_home-samba-link.sh          # /home autofs 해제 + samba 링크 + Finder 디스크/즐겨찾기 (1300 후 실행)
+./1360_rustdesk.sh                 # RustDesk 원격 데스크톱 설치
+./1365_rustdesk-autostart.sh on    # RustDesk 부팅/로그인 자동 실행
 ./1400_claude-compose-bar.sh       # Claude Code Compose Bar (한글 입력)
 ./1430_claude-reset-reinstall.sh   # Claude Code/Desktop 초기화 후보 확인 (dry-run 기본)
 ./1500_termius.sh                  # Termius SSH 클라이언트
@@ -165,6 +169,22 @@ Tailscale IP를 사용한다.
 
 상세 설정과 macOS 최초 보안 승인, Windows 접속 및 문제 해결은
 [config/VNC.md](config/VNC.md) 참조.
+
+## RustDesk
+
+Homebrew로 RustDesk를 설치하고, macOS 부팅 및 로그인 화면/Aqua 세션에서
+자동 실행되도록 launchd daemon과 agent를 등록한다.
+
+```bash
+./1360_rustdesk.sh
+./1365_rustdesk-autostart.sh on
+./1365_rustdesk-autostart.sh status
+./1365_rustdesk-autostart.sh off
+```
+
+최초 한 번 `시스템 설정 → 개인정보 보호 및 보안`에서 RustDesk의
+`화면 및 시스템 오디오 녹음`, `손쉬운 사용`, 필요 시 `입력 모니터링`
+권한을 허용해야 화면 보기와 원격 제어가 정상 동작한다.
 
 ## Claude Code 연동 설명
 

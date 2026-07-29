@@ -1,6 +1,7 @@
 .env
 .DS_Store
 /.vnc-passwd.env
+/.vnc.env
 
 # Ora2Pg는 별도 private repo(hanlimspeedy/Ora2Pg)로 분리 관리 — 중복 추적 방지
 /Ora2Pg/
