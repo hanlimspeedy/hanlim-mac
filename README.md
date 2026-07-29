@@ -15,7 +15,9 @@ mac-setup/
 ├── 0100_xcode-cli-tools.sh          # Xcode CLI Tools (git 포함)
 ├── 0110_homebrew-shared.sh          # Homebrew 다중 사용자 공유 (admin 그룹, 멱등성 보장)
 ├── 0200_sudo-touchid.sh             # NOPASSWD sudoers + Touch ID 보존 (영구 비밀번호 없이 sudo)
-├── 0210_ssh-remote-login.sh          # SSH 원격 로그인 켜기/끄기 + 접속 정보
+├── 0210_ssh-remote-login.sh          # SSH 원격 로그인 켜기/끄기 + 실제 인증 테스트
+├── 0211_ssh-remote-login-test.sh     # SSH 설정/포트/핸드셰이크/공개키 인증 검사
+├── 0212_ssh-client-key.sh             # Desktop에 SSH 접속 키 생성 + 공개키 등록
 ├── 0215_vnc-server.sh                # macOS 내장 VNC 서버 (Windows TigerVNC 접속)
 ├── 0220_claude-screencapture.sh     # Claude Code 화면 캡쳐 권한 설정 (최초 1회)
 ├── 0300_homebrew.sh                 # Homebrew 설치
@@ -185,6 +187,30 @@ Homebrew로 RustDesk를 설치하고, macOS 부팅 및 로그인 화면/Aqua 세
 최초 한 번 `시스템 설정 → 개인정보 보호 및 보안`에서 RustDesk의
 `화면 및 시스템 오디오 녹음`, `손쉬운 사용`, 필요 시 `입력 모니터링`
 권한을 허용해야 화면 보기와 원격 제어가 정상 동작한다.
+
+## Mac SSH 원격 로그인
+
+`0210_ssh-remote-login.sh`는 macOS 원격 로그인을 켜고 현재 사용자의 SSH
+접근 권한, `sshd` 설정, TCP 22 및 실제 공개키 인증을 확인한다. 테스트에는
+일회용 키를 사용하며 종료 시 `~/.ssh/authorized_keys`를 원래 상태로 복구한다.
+
+```bash
+./0210_ssh-remote-login.sh             # 켜기 + 실제 인증 테스트
+./0210_ssh-remote-login.sh on --allow-any-host # iam의 원본 IP 제한 제거
+./0210_ssh-remote-login.sh status      # 설정과 포트 상태
+./0211_ssh-remote-login-test.sh        # 테스트만 다시 실행
+./0211_ssh-remote-login-test.sh --no-auth  # 파일 변경 없는 핸드셰이크 검사
+./0212_ssh-client-key.sh                # Desktop에 전용 키 생성 + 등록
+./0210_ssh-remote-login.sh off         # 끄기
+```
+
+기본 테스트 대상은 기본 네트워크 인터페이스의 LAN IP다. 공유기에서 TCP 22를
+인터넷에 직접 노출하지 말고 외부 접속에는 Tailscale 같은 VPN을 사용한다.
+`sshd_config`에 `AllowUsers` 원본 IP 제한이 있으면 LAN과 VPN의 결과가 다를 수
+있으므로 `./0211_ssh-remote-login-test.sh --host 접속주소`로 각각 검사한다.
+`--allow-any-host`는 `AllowUsers iam`을 적용해 macOS 계정은 제한하면서 LAN,
+Tailscale 등 접속 원본 IP 제한만 제거한다. 이전 규칙은 최초 실행 시
+`/var/backups/hanlim-mac`에 백업한다.
 
 ## Claude Code 연동 설명
 
