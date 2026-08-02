@@ -20,20 +20,28 @@ PAM_REATTACH="$(brew --prefix)/lib/pam/pam_reattach.so"
 # - <user> NOPASSWD ALL: 부팅 직후부터 비밀번호 없이 sudo (단일 사용자 Mac 전제)
 USER_NAME="$(whoami)"
 TMP_SUDOERS="$(mktemp)"
+trap 'rm -f "$TMP_SUDOERS"' EXIT
 cat > "$TMP_SUDOERS" <<EOF
 Defaults timestamp_timeout=-1
 Defaults !tty_tickets
 ${USER_NAME} ALL=(ALL) NOPASSWD: ALL
 EOF
 
-if ! sudo visudo -cf "$TMP_SUDOERS" >/dev/null; then
+# 문법 검사에는 root 권한이 필요 없다. sudo로 실행하면 인증 실패까지
+# sudoers 문법 오류로 오인하게 되므로 visudo를 직접 실행한다.
+if ! /usr/sbin/visudo -cf "$TMP_SUDOERS"; then
   echo "오류: sudoers 문법 검증 실패"
-  rm -f "$TMP_SUDOERS"
+  exit 1
+fi
+
+# 파일 설치와 PAM 설정을 시작하기 전에 관리자 인증을 명확히 분리한다.
+echo "관리자 권한 확인 중..."
+if ! sudo -v; then
+  echo "오류: 관리자 인증 실패. 비밀번호를 확인한 뒤 다시 실행하세요."
   exit 1
 fi
 
 sudo install -o root -g wheel -m 440 "$TMP_SUDOERS" /etc/sudoers.d/timeout
-rm -f "$TMP_SUDOERS"
 
 # /etc/pam.d/sudo_local: pam_reattach (tmux 호환) + pam_tid (Touch ID)
 sudo tee /etc/pam.d/sudo_local >/dev/null <<EOF
