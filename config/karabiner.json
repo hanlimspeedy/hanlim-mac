@@ -6,30 +6,6 @@
       "complex_modifications": {
         "rules": [
           {
-            "description": "Shift+Space to CapsLock (input source switch)",
-            "manipulators": [
-              {
-                "type": "basic",
-                "from": {
-                  "key_code": "spacebar",
-                  "modifiers": {
-                    "mandatory": [
-                      "shift"
-                    ],
-                    "optional": [
-                      "caps_lock"
-                    ]
-                  }
-                },
-                "to": [
-                  {
-                    "key_code": "caps_lock"
-                  }
-                ]
-              }
-            ]
-          },
-          {
             "description": "Alt+F4 => Cmd+Q (Exit application)",
             "manipulators": [
               {

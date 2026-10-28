@@ -6,19 +6,19 @@
 |------|------|------|
 | 윈도우 스타일 단축키 (13개) | complex_modifications | 완료 |
 | Num Lock 숫자패드 탐색키 | complex_modifications + variable toggle | 완료 |
-| Shift+Space 한영전환 | complex_modifications + Caps Lock | 완료 |
 | 2.4G 외장 키보드 Ctrl↔Cmd | device simple_modifications | 완료 |
+
+Shift+Space 한영전환은 Karabiner가 아니라 속 입력기가 처리한다.
+[SOKIM.md](SOKIM.md) 참조.
 
 ## 적용 범위
 
 Karabiner 앱/드라이버는 시스템 전체에 설치되지만, 아래 항목은 사용자별이다.
 
 - `~/.config/karabiner/karabiner.json`
-- `com.apple.symbolichotkeys`
-- `com.apple.HIToolbox`
 
 다른 macOS 사용자 계정에는 자동 적용되지 않는다. 각 사용자로 로그인한 뒤
-`/Users/Shared/root/hanlim-mac/0400_input-switch-shift-space.sh`를 실행해야 한다.
+`/Users/Shared/root/hanlim-mac/0400_karabiner-windows-keys.sh`를 실행해야 한다.
 최초 실행 후에는 해당 사용자 세션에서 Karabiner 입력 모니터링/접근성 권한을
 허용하고, 백그라운드 항목과 드라이버 확장 프로그램이 켜져 있는지 확인해야
 할 수 있다.
@@ -45,7 +45,6 @@ hidutil list --matching '{"PrimaryUsagePage":1,"PrimaryUsage":6}'
 
 | 윈도우 단축키 | macOS 동작 | 비고 |
 |--------------|-----------|------|
-| Shift+Space | 한영전환 | |
 | Alt+F4 | 앱 종료 | |
 | Home/End | 줄 처음/끝 | |
 | Shift+Home/End | 선택하며 줄 처음/끝 | |
@@ -90,62 +89,12 @@ Karabiner 변수(`num_lock_off`) 토글로 윈도우와 동일한 Num Lock 동�
 - Num Lock OFF: keypad_0→Insert, keypad_7→Home, keypad_1→End, keypad_9→PgUp, keypad_3→PgDn 등
 - Shift+keypad_0 → Cmd+V (붙여넣기), Ctrl+keypad_0 → Cmd+C (복사) 직접 매핑
 
-## Shift+Space 한영전환
+## 한영전환은 매핑하지 않는다
 
-### 결론
-
-이 저장소의 정답은 `Shift+Space → caps_lock`이다.
-
-왼쪽 Caps Lock 키가 macOS에서 ABC↔두벌식 전환으로 정상 동작한다면,
-Karabiner는 `Shift+Space`를 같은 `caps_lock` 키 입력으로 보내는 역할만 해야
-한다. 이 경로가 macOS 네이티브 한영전환을 타기 때문에 메뉴바 표시와 현재 앱의
-실제 입력 컨텍스트가 함께 바뀐다.
-
-### 방식
-Karabiner에서 `Shift+Space`를 `caps_lock` 키 입력으로 변환한다.
-macOS의 Caps Lock 한영전환이 실제 입력 컨텍스트까지 갱신하므로, 메뉴바만
-한글로 바뀌고 실제 입력은 영어로 남는 문제를 피한다.
-
-또한 앱/문서별 입력 소스 자동 전환(`TextInputGlobalPropertyPerContextInput`)을
-끈다. 이 옵션이 켜져 있으면 메뉴바 표시는 바뀌었는데 현재 터미널 입력
-컨텍스트는 이전 입력 소스를 유지하는 식의 불일치가 생길 수 있다.
-
-Caps Lock의 길게 누르기 대문자 고정은 끈다
-(`AppleCapsLockPressAndHoldToggleOff=true`). 이 기능이 켜져 있으면 macOS가
-Caps Lock을 짧게 누른 한영전환인지 길게 누른 대문자 고정인지 판별해야 해서
-한영전환 지연이나 씹힘이 생길 수 있다. 대문자는 Shift로 입력한다.
-
-전제 조건: macOS 설정에서 왼쪽 Caps Lock 키가 ABC↔두벌식 전환으로 정상
-동작해야 한다.
-
-### 실패했던 방식
-
-아래 방식은 다시 도입하지 않는다.
-
-- `select_input_source`: Karabiner가 입력 소스를 직접 선택하는 방식이다. 한국어
-  같은 CJK 입력 소스에서 메뉴바는 한글로 바뀌지만 현재 앱의 실제 입력
-  컨텍스트가 영어로 남을 수 있다. 실제 증상은 "menubar에는 Hangul이 보이는데
-  한글이 입력되지 않음"이다.
-- `Ctrl+Option+Space`: macOS의 "Select next source in Input menu" 순환
-  단축키다. 입력 메뉴에 ABC/두벌식 외의 항목이 있으면 한 번에 ABC↔두벌식으로
-  가지 않을 수 있다.
-- `Ctrl+Space`: macOS의 "Select the previous input source" 단축키다. 이론상
-  토글에 가깝지만, Karabiner 가상 키보드가 보낸 이벤트가 현재 환경에서 안정적으로
-  입력 소스 전환으로 처리되지 않았다.
-- 별도 helper나 직접 TIS 전환: `select_input_source`와 같은 계열의 실패가 날 수
-  있어 기본 경로로 쓰지 않는다.
-
-### 검증 방법
-
-1. 왼쪽 Caps Lock 키를 직접 눌러 ABC↔두벌식이 실제 입력까지 바뀌는지 확인한다.
-2. `Shift+Space`를 눌렀을 때 왼쪽 Caps Lock과 같은 결과가 나와야 한다.
-3. 메뉴바만 한글이고 실제 입력이 영어라면 `select_input_source` 계열로 회귀한
-   것이므로 `config/karabiner.json`의 첫 규칙이 `key_code: caps_lock`인지 본다.
-4. Caps Lock을 길게 눌러도 대문자 고정이 켜지지 않아야 한다.
-
-### 입력 소스 ID
-- 두벌식: `com.apple.inputmethod.Korean.2SetKorean`
-- ABC: `com.apple.keylayout.ABC`
+Shift+Space와 Caps Lock 한영전환은 속 입력기가 키보드 입력을 직접 읽어
+처리한다. Karabiner에서 Shift+Space를 다른 키로 바꾸면 속 입력기가 받지
+못하므로 매핑하지 않는다. `0400_karabiner-windows-keys.sh`는 설정에
+Shift+Space 매핑이 있으면 오류로 중단한다. 상세는 [SOKIM.md](SOKIM.md) 참조.
 
 ## 트러블슈팅
 

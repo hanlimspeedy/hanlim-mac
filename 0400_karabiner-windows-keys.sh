@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "==> Karabiner-Elements 설치 + Shift+Space 한영전환 + Ctrl↔Cmd 스왑"
+echo "==> Karabiner-Elements 설치 + 윈도우 스타일 단축키 + Ctrl↔Cmd 스왑"
 
 eval "$(/opt/homebrew/bin/brew shellenv)" 2>/dev/null
 
@@ -38,18 +38,14 @@ if ! "$JQ" -e \
   exit 1
 fi
 
-# Shift+Space는 Caps Lock으로 변환한다.
-# select_input_source는 메뉴바만 바뀌고 실제 앱 입력이 영어로 남을 수 있다.
-# macOS 입력 소스 순환 단축키도 입력 소스 목록에 따라 한 번에 전환되지 않을 수 있어 끈다.
-defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add 60 \
-  "<dict><key>enabled</key><false/><key>value</key><dict><key>type</key><string>standard</string><key>parameters</key><array><integer>32</integer><integer>49</integer><integer>262144</integer></array></dict></dict>"
-defaults write com.apple.symbolichotkeys AppleSymbolicHotKeys -dict-add 61 \
-  "<dict><key>enabled</key><false/><key>value</key><dict><key>type</key><string>standard</string><key>parameters</key><array><integer>32</integer><integer>49</integer><integer>786432</integer></array></dict></dict>"
-defaults write com.apple.HIToolbox AppleGlobalTextInputProperties -dict TextInputGlobalPropertyPerContextInput -bool false
-defaults write com.apple.HIToolbox AppleCapsLockPressAndHoldToggleOff -bool true
-killall cfprefsd 2>/dev/null || true
-killall TextInputMenuAgent 2>/dev/null || true
-killall keyboardservicesd 2>/dev/null || true
+# Shift+Space 한영전환은 속 입력기(0410)가 키보드에서 직접 읽어 처리한다.
+# Karabiner가 Shift+Space를 다른 키로 바꾸면 속 입력기가 받지 못하므로 막는다.
+if "$JQ" -e \
+  '[.profiles[].complex_modifications.rules[].manipulators[] | select(.from.key_code == "spacebar" and ((.from.modifiers.mandatory // []) | any(test("shift"))))] | length > 0' \
+  "$KARABINER_CONFIG" >/dev/null; then
+  echo "오류: Karabiner 설정에 Shift+Space 매핑이 있습니다. 한영전환은 0410_sokim-input-method.sh가 처리합니다." >&2
+  exit 1
+fi
 
 # Karabiner 설정 재로드. 실패해도 아래 진단에서 원인을 보여준다.
 if [ -x "$KARABINER_CLI" ]; then
@@ -65,8 +61,7 @@ sleep 3
 echo ""
 echo "완료: Karabiner-Elements 설정 적용"
 echo "  - 2.4G 외장 키보드($EXTERNAL_KEYBOARD_VENDOR_HEX/$EXTERNAL_KEYBOARD_PRODUCT_HEX) Ctrl ↔ Cmd 스왑"
-echo "  - Shift+Space → Caps Lock → macOS 네이티브 한영전환"
-echo "  - Caps Lock 길게 누르기 대문자 고정 끔"
+echo "  - 한영전환(Shift+Space)은 0410_sokim-input-method.sh(속 입력기)가 처리"
 echo ""
 echo "진단:"
 if command -v hidutil >/dev/null 2>&1; then

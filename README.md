@@ -8,6 +8,7 @@ mac-setup/
 ├── config/
 │   ├── karabiner.json               # Karabiner-Elements 설정 (윈도우 스타일)
 │   ├── KARABINER.md                 # Karabiner 설정 가이드 + 트러블슈팅
+│   ├── SOKIM.md                     # 속 입력기 한영전환 (Shift+Space) + 롤백
 │   ├── TERMIUS.md                   # Termius 설정 가이드 (기본 터미널)
 │   ├── VNC.md                       # Windows에서 Mac VNC 접속 가이드
 │   ├── 8BITDO.md                    # 8BitDo Zero 2 설정 가이드 (페이지 넘기기)
@@ -21,7 +22,8 @@ mac-setup/
 ├── 0215_vnc-server.sh                # macOS 내장 VNC 서버 (Windows TigerVNC 접속)
 ├── 0220_claude-screencapture.sh     # Claude Code 화면 캡쳐 권한 설정 (최초 1회)
 ├── 0300_homebrew.sh                 # Homebrew 설치
-├── 0400_input-switch-shift-space.sh # Karabiner + Shift+Space 한영전환 + Ctrl↔Cmd
+├── 0400_karabiner-windows-keys.sh   # Karabiner 윈도우 스타일 단축키 + Ctrl↔Cmd
+├── 0410_sokim-input-method.sh       # 속 입력기 + Shift+Space 한영전환
 ├── 0600_microsoft-office.sh        # Microsoft 365 Office 설치
 ├── 0700_bettershot.sh              # Better Shot 스크린샷 캡처 + 편집 도구 (무료, 오픈소스)
 ├── 0800_iina.sh                    # IINA 동영상 플레이어
@@ -68,7 +70,8 @@ cd ~/mac-setup
 ./0215_vnc-server.sh        # macOS 내장 VNC 서버 (Windows에서 접속)
 ./0220_claude-screencapture.sh  # 화면 캡쳐 권한 (최초 1회)
 ./0300_homebrew.sh           # Homebrew 설치
-./0400_input-switch-shift-space.sh  # Karabiner + 한영전환 + 키보드 설정
+./0400_karabiner-windows-keys.sh   # Karabiner 윈도우 스타일 단축키
+./0410_sokim-input-method.sh       # 속 입력기 + Shift+Space 한영전환 (권한 허용 + 재로그인)
 ./0600_microsoft-office.sh         # Microsoft 365 Office 설치
 ./0700_bettershot.sh               # Better Shot 스크린샷 캡처 + 편집 도구
 ./0800_iina.sh                     # IINA 동영상 플레이어
@@ -136,17 +139,24 @@ Claude Desktop 직접 다운로드가 Cloudflare challenge 등으로 실패하�
 
 ### 다른 사용자 계정
 
-Karabiner 앱/드라이버는 시스템 전체에 설치되지만, Karabiner 설정과 macOS 입력
-소스 단축키 설정은 사용자별이다. 다른 macOS 사용자 계정에는 자동 적용되지
+Karabiner 앱/드라이버와 속 입력기는 시스템 전체에 설치되지만, Karabiner 설정과
+입력 소스/한영키 설정은 사용자별이다. 다른 macOS 사용자 계정에는 자동 적용되지
 않으므로, 해당 계정으로 로그인한 뒤 아래를 실행한다.
 
 ```bash
 cd /Users/Shared/root/hanlim-mac
-./0400_input-switch-shift-space.sh
+./0400_karabiner-windows-keys.sh
+./0410_sokim-input-method.sh
 ```
 
 최초 실행 후에는 그 사용자 세션에서 Karabiner 손쉬운 사용, 입력 모니터링,
-백그라운드 항목, 드라이버 확장 프로그램 권한을 확인해야 할 수 있다.
+백그라운드 항목, 드라이버 확장 프로그램 권한과 속 입력기 입력 모니터링,
+손쉬운 사용 권한을 확인해야 할 수 있다.
+
+## 한영전환 (속 입력기)
+
+Shift+Space 한영전환은 Karabiner 매핑 대신 속 입력기가 처리한다. 설치, 검증,
+알려진 제한, 롤백은 [config/SOKIM.md](config/SOKIM.md) 참조.
 
 ## 8BitDo Zero 2 (페이지 넘기기)
 
