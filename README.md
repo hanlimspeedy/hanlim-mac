@@ -38,6 +38,8 @@ mac-setup/
 ├── 1305_rdp-connect.sh             # Windows RDP 원격 데스크톱 연결 (소리는 Windows PC에서 재생)
 ├── 1310_cyberduck.sh               # Cyberduck FTP/SFTP/WebDAV/S3 GUI 클라이언트
 ├── 1340_home-samba-link.sh        # /home autofs 해제 + samba 링크 + Finder 디스크/즐겨찾기
+├── 1355_tailscale-exit-node-off.sh # Tailscale exit node 끄기 (평소)
+├── 1356_tailscale-exit-node-on.sh  # Tailscale exit node 켜기 (big-245)
 ├── 1360_rustdesk.sh               # RustDesk 원격 데스크톱 설치
 ├── 1365_rustdesk-autostart.sh     # RustDesk 부팅/로그인 자동 실행
 ├── 1396_reset-codex-claude-env.sh # CODEX_HOME/CLAUDE_CONFIG_DIR launchd 해제 (sudo)
@@ -86,6 +88,8 @@ cd ~/mac-setup
 ./1305_rdp-connect.sh              # Windows RDP 원격 데스크톱 연결 (소리는 Windows PC에서 재생)
 ./1310_cyberduck.sh                # Cyberduck FTP/SFTP 클라이언트
 ./1340_home-samba-link.sh          # /home autofs 해제 + samba 링크 + Finder 디스크/즐겨찾기 (1300 후 실행)
+./1355_tailscale-exit-node-off.sh  # Tailscale exit node 끄기 (평소)
+./1356_tailscale-exit-node-on.sh   # Tailscale exit node 켜기 (필요할 때만)
 ./1360_rustdesk.sh                 # RustDesk 원격 데스크톱 설치
 ./1365_rustdesk-autostart.sh on    # RustDesk 부팅/로그인 자동 실행
 ./1400_claude-compose-bar.sh       # Claude Code Compose Bar (한글 입력)
@@ -185,6 +189,20 @@ Tailscale IP를 사용한다.
 
 상세 설정과 macOS 최초 보안 승인, Windows 접속 및 문제 해결은
 [config/VNC.md](config/VNC.md) 참조.
+
+## Tailscale exit node
+
+exit node를 쓰면 모든 인터넷 트래픽이 그 PC를 거쳐 나가 느려진다. 평소에는
+끄고, 다른 PC의 IP로 나가야 할 때만 켠다. 켤 때도 공유기 내부망(SMB, 프린터
+등)은 직접 접근한다(`--exit-node-allow-lan-access`).
+
+```bash
+./1355_tailscale-exit-node-off.sh   # 끄기 (평소, Tailscale 연결은 유지)
+./1356_tailscale-exit-node-on.sh    # big-245를 exit node로 사용
+```
+
+exit node PC를 바꾸려면 `1356_tailscale-exit-node-on.sh`의 `EXIT_NODE`를
+`tailscale exit-node list`의 HOSTNAME 중 하나로 바꾼다.
 
 ## RustDesk
 
