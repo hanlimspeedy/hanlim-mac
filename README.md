@@ -27,6 +27,8 @@ mac-setup/
 ├── 0800_iina.sh                    # IINA 동영상 플레이어
 ├── 0900_keka.sh                    # Keka 압축 해제/생성 (RAR, 7z, TGZ 등)
 ├── 1000_mouse-no-acceleration.sh   # 마우스 가속 끄기 (윈도우 스타일)
+├── 1002_pointer-size-color.sh      # 마우스 포인터 크기/색상 설정 안내 (자동 설정 불가)
+├── 1005_key-repeat-windows.sh      # 키 반복 속도 윈도우 기본값 (방향키 커서 이동)
 ├── 1010_scroll-no-smooth.sh       # 스크롤 애니메이션 비활성화 (윈도우 스타일)
 ├── 1100_startup-mute.sh            # 부팅 사운드 끄기
 ├── 1200_menubar-volume.sh          # 메뉴바 볼륨 아이콘 표시
@@ -72,6 +74,8 @@ cd ~/mac-setup
 ./0800_iina.sh                     # IINA 동영상 플레이어
 ./0900_keka.sh                     # Keka 압축 해제/생성
 ./1000_mouse-no-acceleration.sh    # 마우스 가속 끄기 (로그아웃 후 적용)
+./1002_pointer-size-color.sh       # 마우스 포인터 크기/색상 안내 + 설정 화면 열기 (수동)
+./1005_key-repeat-windows.sh       # 키 반복 속도 윈도우 기본값 (즉시 적용)
 ./1010_scroll-no-smooth.sh         # 스크롤 애니메이션 비활성화
 ./1100_startup-mute.sh             # 부팅 사운드 끄기
 ./1200_menubar-volume.sh           # 메뉴바 볼륨 아이콘 표시
